@@ -73,67 +73,7 @@ struct sockaddr_in frontend;
 struct serverlist serverlist;
 struct hostent *serv_addr;
 
-int switchservers(){
-	int i = 0;
-	while(i < MAXSERVERS && serverlist.active[i] == 0){
-		i++;
-	}
-	primary_id = i;
-}
-
-int update_server_list(struct packet reply){
-	char *data;
-	strncpy(data,reply.data, sizeof(struct serverlist));
-	serverlist = *((struct serverlist *) &data);
-}
-
-void *ping(){
-	int from_len;
-	struct sockaddr from;
-	SOCKET session_socket;
-	struct sockaddr_in rm;
-	struct sockaddr_in session;
-	struct packet request, reply;
-	int session_len, rm_len = sizeof(struct sockaddr_in), active = 1;
-	struct timeval tv;
-	tv.tv_sec = 0;
-	tv.tv_usec = 500000;
-	// Socket setup
-	if((session_socket = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
-		printf("ERROR: Socket creation failure.\n");
-		exit(1);
-	}
-	memset((void *) &session,0,sizeof(struct sockaddr_in));
-	session.sin_family = AF_INET;
-	session.sin_addr.s_addr = htonl(INADDR_ANY);
-	session.sin_port = htons(5000);
-	session_len = sizeof(session);
-	if (bind(session_socket,(struct sockaddr *) &session, session_len)) {
-		printf("Binding error\n");
-		active = 0;
-	}
-	// Set timeout option
-	if (setsockopt(session_socket, SOL_SOCKET, SO_RCVTIMEO,&tv,sizeof(tv)) < 0) {
-		perror("Error");
-	}
-	rm = server;
-	rm.sin_port = htons(5000);
-	while(active){
-		// Send ping
-		request.opcode = PING;
-		request.seqnum = FRONTEND; 
-		sendto(session_socket, (char *) &request, PACKETSIZE, 0, (struct sockaddr *)&rm, rm_len);
-		// Wait for an ack & slist
-		if (0 > recvfrom(session_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *) &from, &from_len)){
-			// Timeout
-			serverlist.active[primary_id] = 0;
-			int switchservers();
-			rm = serverlist.addr[primary_id];
-		}
-		else{
-			update_server_list(reply);
-		}
-	}
+void *getnewleader(){
 }
 
 void *session(){
@@ -227,7 +167,7 @@ int main(int argc,char *argv[]){
 	// Login reply reroute to client
 	sendto(fe_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *)&client, client_len);
 	// call ping
- 	pthread_create(&tid1, NULL, ping, NULL);
+ 	pthread_create(&tid1, NULL, getnewleader, NULL);
 	// call session
 	pthread_create(&tid2, NULL, session, NULL);
 	return 0;
