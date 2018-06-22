@@ -455,10 +455,10 @@ void *replica_manager(){
 			}
 			recvfrom(rm_socket, (char *) &ping, PACKETSIZE, 0, (struct sockaddr *) &from, (socklen_t *) &from_len);
 			// If pinged by higher priority server, start election
-			if(ping.seqnum > ((short) local_server_id)){
+			if(ping.seqnum < ((short) local_server_id)){
 				pthread_create(&tide, NULL, election_answer, NULL);
 				pthread_create(&tide, NULL, election_ping, NULL);
-				printf("ElectedPrimary is %d\n\n", primary_server_id);
+				printf("Elected Primary is %d\n\n", primary_server_id);
 			}
 			// Else respond
 			reply.opcode = ACK;
