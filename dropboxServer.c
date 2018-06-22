@@ -483,7 +483,7 @@ void *replica_manager(){
 				pthread_create(&tide, NULL, election_ping, NULL);
 				printf("2 - Elected Primary is %d\n\n", primary_server_id);
 			}
-			else if(reply.seqnum < ((short) local_server_id) && reply.opcode == ACK){
+			else if(reply.seqnum < ((short) local_server_id)){
 				pthread_create(&tide, NULL, election_answer, NULL);
 				pthread_create(&tide, NULL, election_ping, NULL);
 				printf("3 - Elected Primary is %d\n\n", primary_server_id);
