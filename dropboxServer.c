@@ -479,7 +479,9 @@ void *replica_manager(){
 			// Send pings
 			sendto(rm_socket, (char *) &ping, PACKETSIZE, 0, (struct sockaddr *)&primary_server, primary_len);
 			// If hasn't received heartbeat response or if the responding manager has lower priority, start Election
-			if(recvfrom(rm_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *) &from, (socklen_t *) &from_len) < 0){
+			n = recvfrom(rm_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *) &from, (socklen_t *) &from_len);
+			if(n < 0){
+				printf("n is %d\n\n",n)
 				pthread_create(&tide, NULL, election_answer, NULL);
 				pthread_create(&tide, NULL, election_ping, NULL);
 				printf("2 - Elected Primary is %d\n\n", primary_server_id);
