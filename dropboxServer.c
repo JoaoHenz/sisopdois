@@ -361,6 +361,7 @@ void* election_answer(){
 	}
 	//
 	reply.opcode = ACK;
+	reply.seqnum = local_server_id;
 	while(elected == 0){
 		recvfrom(rm_socket, (char *) &ping, PACKETSIZE, 0, (struct sockaddr *) &from, (socklen_t *) &from_len);
 		sendto(rm_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *)&from, from_len);
@@ -391,15 +392,16 @@ void* election_ping(){
 	}
 	sendto(ping_socket, (char *) &ping, PACKETSIZE, 0, (struct sockaddr *)&election_s1, primary_len);
 	if(0 < recvfrom(ping_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *) &from, (socklen_t *) &from_len) || local_server_id == 1){
-		if(reply.opcode = ACK){
+		if(reply.opcode = ACK && reply.seqnum == 1){
 			primary_server_id = 1;
 			primary_server = server_1;
 			primary_len = sizeof(server_1);
+			printf("Case 1 \n\n");
 		}
 	}
 	sendto(ping_socket, (char *) &ping, PACKETSIZE, 0, (struct sockaddr *)&election_s2, primary_len);
 	if(0 < recvfrom(ping_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *) &from, (socklen_t *) &from_len) || local_server_id == 2){
-		if(reply.opcode = ACK){
+		if(reply.opcode = ACK && reply.seqnum == 2){
 			primary_server_id = 2;
 			primary_server = server_2;
 			primary_len = sizeof(server_2);
@@ -407,13 +409,13 @@ void* election_ping(){
 	}
 	sendto(ping_socket, (char *) &ping, PACKETSIZE, 0, (struct sockaddr *)&election_s3, primary_len);
 	if(0 < recvfrom(ping_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *) &from, (socklen_t *) &from_len) || local_server_id == 3){
-		if(reply.opcode = ACK){
+		if(reply.opcode = ACK && reply.seqnum == 3){
 			primary_server_id = 3;
 			primary_server = server_3;
 			primary_len = sizeof(server_3);
 		}
 	}
-	printf("New primary server is %d\n\n", primary_server_id);
+	printf("New primary server is %d, local server id is %d\n\n", primary_server_id, local_server_id);
 	elected = 1;
 	if(local_server_id == primary_server_id){
 		inform_frontend_clients = session_count;
