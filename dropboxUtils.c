@@ -40,7 +40,7 @@
 #define LOGIN 7
 #define FILEPKT 8
 #define LASTPKT 9
-
+#define PING 10
 
 struct packet {
 	short int opcode;

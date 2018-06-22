@@ -31,9 +31,6 @@
 #define LASTPKT 9
 // Part II
 #define PING 10
-#define MAXSERVERS 3
-#define FRONTEND 999
-#define NONE 1000
 
 // Structures
 struct file_info {
@@ -62,23 +59,25 @@ struct pair {
 	int s_id;
 };
 
-struct serverlist{
-	int active[MAXSERVERS];
-	struct sockaddr_in addr[MAXSERVERS];
-};
-
 // Global Variables
 struct client client_list [MAXCLIENTS];
 
 // Global Variables Part II
-char host[20];
-struct serverlist serverlist;
-int primary_id;
-int server_id;
-int is_primary;
-SOCKET rep_socket;
-
+int primary_server_id, local_server_id, primary_len, inform_frontend_clients;
+char ip_server_1[20];
+char ip_server_2[20];
+char ip_server_3[20];
+struct hostent *host_server_1;
+struct hostent *host_server_2;
+struct hostent *host_server_3;
+struct sockaddr_in server_1;
+struct sockaddr_in server_2;
+struct sockaddr_in server_3;
+struct sockaddr_in primary_server;
+int elected;
+int session_count;
 // Subroutines
+/*
 void replication(struct packet message){
 	int i;
 	struct sockaddr_in destination;
@@ -89,6 +88,7 @@ void replication(struct packet message){
 		}
 	}
 }
+*/
 
 char * devolvePathHomeServer(char *userID){
 	char * pathsyncdir;
@@ -152,10 +152,6 @@ void receive_file(char *file, int socket, char*userID){
 	strcat(path, file);
 	printf("File path is: %s\n\n",path);
 	receive_file_from(socket, path);
-	for(i = 0; i < MAXSERVERS; i++){
-		dest = (struct sockaddr *) &(serverlist.addr[i]);
-		send_file_to(socket, path, *dest);
-	}
 }
 
 int delete_file(char *file, int socket, char*userID){
@@ -198,6 +194,18 @@ void list_files(SOCKET socket, struct sockaddr client, char *userID){
 	sendto(socket, (char *) &reply, PACKETSIZE,0,(struct sockaddr *)&client, sizeof(client));
 }
 
+int inform_frontend(struct sockaddr client, SOCKET session_socket){
+	struct sockaddr_in *fe_client;
+	struct packet ping;
+	int fe_len;
+	fe_client = (struct sockaddr_in *) &client;
+	(*fe_client).sin_port = htons(4000);
+	fe_len = sizeof(fe_client);
+	ping.opcode = PING;
+	sendto(session_socket, (char *) &ping, PACKETSIZE, 0, (struct sockaddr *)&fe_client, fe_len);
+	return 0;
+}
+
 void *session_manager(void* args){
 	char filename[MAXNAME];
 	SOCKET session_socket;
@@ -205,6 +213,7 @@ void *session_manager(void* args){
 	struct sockaddr_in session;
 	struct packet request, reply;
 	int c_id, s_id, session_port, session_len, client_len = sizeof(struct sockaddr_in), active = 1;
+	int has_informed = 0;
 
 	// Getting thread arguments
 	struct pair *session_info = (struct pair *) args;
@@ -242,6 +251,14 @@ void *session_manager(void* args){
 		// Setup done
 
 	while(active){
+		if(inform_frontend_clients > 0 && has_informed == 0){
+			inform_frontend(client, session_socket);
+			inform_frontend_clients--;
+			has_informed = 1;
+		}
+		else if (inform_frontend_clients == 0){
+			has_informed = 0;
+		}
 		if (!recvfrom(session_socket, (char *) &request, PACKETSIZE, 0, (struct sockaddr *) &client, (socklen_t *) &client_len)){
 			printf("ERROR: Package reception error.\n\n");
 		}
@@ -252,7 +269,6 @@ void *session_manager(void* args){
 				sendto(session_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *)&client, client_len);
 				strncpy(filename, request.data, MAXNAME);
 				receive_file(filename, session_socket, client_list[c_id].user_id);
-				replication(request);
 				break;
 			case DOWNLOAD:
 				reply.opcode = ACK;
@@ -270,13 +286,12 @@ void *session_manager(void* args){
 				sendto(session_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *)&client, client_len);
 				strncpy(filename, request.data, MAXNAME);
 				delete_file(filename, session_socket, client_list[c_id].user_id);
-				replication(request);
 				break;
 			case CLOSE:
 				reply.opcode = ACK;
 				sendto(session_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *)&client, client_len);
 				client_list[c_id].session_active[s_id] = 0;
-				replication(request);
+				session_count--;
 				pthread_exit(0); // Should have an 'ack' by the client allowing us to terminate, ideally!
 				break;
 			default:
@@ -315,8 +330,167 @@ int login(struct packet login_request){
 }
 
 // ========================================================================== //
+void* sync_server_manager(){
+	// Handle updating files to the non-primary servers
+	//(doesn't handle login, close or delete requests, those are duplicated elsewhere)
+}
 
+void* election_answer(){
+	SOCKET rm_socket;
+	struct sockaddr_in primary_rm, this_rm, from;
+	struct packet ping, reply;
+	int i, j, rm_port = 3600, this_len, from_len, online = 1;
+	struct timeval tv;
+	elected = 0;
+	tv.tv_sec = 1;
+	tv.tv_usec = 0;
+	ping.opcode = PING;
+	ping.seqnum = (short) local_server_id;
 
+	// Set up socket
+	if((rm_socket = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
+		exit(1);
+	}
+	memset((void *) &this_rm,0,sizeof(struct sockaddr_in));
+	this_rm.sin_family = AF_INET;
+	this_rm.sin_addr.s_addr = htonl(INADDR_ANY);
+	this_rm.sin_port = htons(rm_port);
+	this_len = sizeof(this_rm);
+	if (bind(rm_socket,(struct sockaddr *) &this_rm, this_len)) {
+		exit(1);
+	}
+	//
+	reply.opcode = ACK;
+	while(elected == 0){
+		recvfrom(rm_socket, (char *) &ping, PACKETSIZE, 0, (struct sockaddr *) &from, (socklen_t *) &from_len);
+		sendto(rm_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *)&from, from_len);
+	}
+}
+
+void* election_ping(){
+	struct packet ping, reply;
+	struct sockaddr_in from;
+	int from_len;
+	SOCKET ping_socket;
+
+	if ((ping_socket = socket(AF_INET, SOCK_DGRAM, 0)) == -1)
+		printf("ERROR opening socket");
+	struct sockaddr_in election_s1 = server_1;
+	struct sockaddr_in election_s2 = server_2;
+	struct sockaddr_in election_s3 = server_3;
+	election_s1.sin_port = htons(3000);
+	election_s2.sin_port = htons(3000);
+	election_s3.sin_port = htons(3000);
+	ping.opcode = PING;
+	ping.seqnum = (short) local_server_id;
+	struct timeval tv;
+	tv.tv_sec = 1;
+	tv.tv_usec = 0;
+	if (setsockopt(ping_socket, SOL_SOCKET, SO_RCVTIMEO,&tv,sizeof(tv)) < 0) {
+		perror("Error");
+	}
+	sendto(ping_socket, (char *) &ping, PACKETSIZE, 0, (struct sockaddr *)&election_s1, primary_len);
+	if(0 < recvfrom(ping_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *) &from, (socklen_t *) &from_len) || local_server_id == 1){
+		if(reply.opcode = ACK){
+			primary_server_id = 1;
+			primary_server = server_1;
+			primary_len = sizeof(server_1);
+		}
+	}
+	sendto(ping_socket, (char *) &ping, PACKETSIZE, 0, (struct sockaddr *)&election_s2, primary_len);
+	if(0 < recvfrom(ping_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *) &from, (socklen_t *) &from_len) || local_server_id == 2){
+		if(reply.opcode = ACK){
+			primary_server_id = 2;
+			primary_server = server_2;
+			primary_len = sizeof(server_2);
+		}
+	}
+	sendto(ping_socket, (char *) &ping, PACKETSIZE, 0, (struct sockaddr *)&election_s3, primary_len);
+	if(0 < recvfrom(ping_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *) &from, (socklen_t *) &from_len) || local_server_id == 3){
+		if(reply.opcode = ACK){
+			primary_server_id = 3;
+			primary_server = server_3;
+			primary_len = sizeof(server_3);
+		}
+	}
+	printf("New primary server is %d\n\n", primary_server_id);
+	elected = 1;
+	if(local_server_id == primary_server_id){
+		inform_frontend_clients = session_count;
+	}
+}
+
+void *replica_manager(){
+	pthread_t tide, tida;
+	SOCKET rm_socket;
+	struct sockaddr_in primary_rm, this_rm, from;
+	struct packet ping, reply;
+	int i, j, rm_port = 5000, this_len, from_len, online = 1;
+	struct timeval tv;
+	tv.tv_sec = 1;
+	tv.tv_usec = 0;
+	ping.opcode = PING;
+	ping.seqnum = (short) local_server_id;
+
+	// Set up socket
+	if((rm_socket = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
+		exit(1);
+	}
+	memset((void *) &this_rm,0,sizeof(struct sockaddr_in));
+	this_rm.sin_family = AF_INET;
+	this_rm.sin_addr.s_addr = htonl(INADDR_ANY);
+	this_rm.sin_port = htons(rm_port);
+	this_len = sizeof(this_rm);
+	if (bind(rm_socket,(struct sockaddr *) &this_rm, this_len)) {
+		exit(1);
+	}
+	//
+	while(online){
+		if(primary_server_id == local_server_id){
+			// Primary server case, turn off Timeout
+			tv.tv_sec = 6000;
+			if (setsockopt(rm_socket, SOL_SOCKET, SO_RCVTIMEO,&tv,sizeof(tv)) < 0) {
+				perror("Error");
+			}
+			recvfrom(rm_socket, (char *) &ping, PACKETSIZE, 0, (struct sockaddr *) &from, (socklen_t *) &from_len);
+			// If pinged by higher priority server, start election
+			if(ping.seqnum > ((short) local_server_id)){
+				pthread_create(&tide, NULL, election_answer, NULL);
+				pthread_create(&tide, NULL, election_ping, NULL);
+			}
+			// Else respond
+			reply.opcode = ACK;
+			ping.seqnum = (short) local_server_id;
+			sendto(rm_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *)&from, from_len);
+		}
+		else{
+			// Secondary server case, set up Timeout
+			tv.tv_sec = 1;
+			if (setsockopt(rm_socket, SOL_SOCKET, SO_RCVTIMEO,&tv,sizeof(tv)) < 0) {
+				perror("Error");
+			}
+			ping.opcode = PING;
+			ping.seqnum = (short) local_server_id;
+			// Send pings
+			sendto(rm_socket, (char *) &ping, PACKETSIZE, 0, (struct sockaddr *)&primary_server, primary_len);
+			// If hasn't received heartbeat response or if the responding manager has lower priority, start Election
+			if(0 > recvfrom(rm_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *) &from, (socklen_t *) &from_len)){
+				pthread_create(&tide, NULL, election_answer, NULL);
+				pthread_create(&tide, NULL, election_ping, NULL);
+			}
+			else if(reply.seqnum < ((short) local_server_id) && reply.opcode == ACK){
+				pthread_create(&tide, NULL, election_answer, NULL);
+				pthread_create(&tide, NULL, election_ping, NULL);
+			}
+		}
+		printf("Primary is %d\n\n", primary_server_id);
+		if(local_server_id == primary_server_id){
+			inform_frontend_clients = 1;
+		}
+	}
+}
+
+/*
 void elect_primary(){
 	int i = 0;
 	while(i < MAXSERVERS && serverlist.active[i] == 0){
@@ -454,29 +628,55 @@ void *setrep(){
 	printf("Rep socket initialized.\n\n");
 	pthread_exit(0);
 }
+*/
 
 int main(int argc,char *argv[]){
 	//char host[20];
+	char strid[100];
 	SOCKET main_socket;
 	struct sockaddr client;
 	struct sockaddr_in server;
 	struct packet login_request, login_reply;
 	int i, j, session_port, server_len, client_len = sizeof(struct sockaddr_in), online = 1;
 	pthread_t tid1, tid2;
-
-	if (argc!=2){
-		printf("Escreva no formato: ./dropboxServer <endereço_do_server_primario>\n\n");
+	session_count = 0;
+	// num_primario indicates which server is primary: 1 -> a, 2 -> b, 3 -> this one
+	if (argc!=5){
+		printf("Escreva no formato: ./dropboxServer <endereço_do_server_a> <endereço_do_server_b> <id_do_server_local>\n\n");
 		return 0;
 	}
-	strcpy(host,argv[1]);
-	is_primary = FALSE;
+	strcpy(ip_server_1,argv[1]);
+	strcpy(ip_server_2,argv[2]);
+	strcpy(ip_server_3,argv[3]);
+	strcpy(strid,argv[4]);
+	local_server_id = atoi(strid);
+	inform_frontend_clients = 0;
+
+	primary_server_id = 1;
+	host_server_1 = gethostbyname(ip_server_1);
+	server_1.sin_family = AF_INET;
+	server_1.sin_port = htons(5000);
+	server_1.sin_addr = *((struct in_addr *)host_server_1->h_addr);
+	bzero(&(server_1.sin_zero), 8);
+	primary_server = server_1;
+	primary_len = sizeof(server_1);
+	//
+	host_server_2 = gethostbyname(ip_server_2);
+	server_2.sin_family = AF_INET;
+	server_2.sin_port = htons(5000);
+	server_2.sin_addr = *((struct in_addr *)host_server_2->h_addr);
+	bzero(&(server_2.sin_zero), 8);
+	//
+	host_server_3 = gethostbyname(ip_server_3);
+	server_3.sin_family = AF_INET;
+	server_3.sin_port = htons(5000);
+	server_3.sin_addr = *((struct in_addr *)host_server_3->h_addr);
+	bzero(&(server_3.sin_zero), 8);
+
 	for (i = 0; i < MAXCLIENTS; i++){
 		for(j = 0; j < MAXSESSIONS; j++){
 			client_list[i].socket_set[j] = 0;
 		}
-	}
-	for (i = 0; i < MAXSERVERS; i++){
-		serverlist.active[i] = 0;
 	}
 
 	create_server_root();
@@ -497,7 +697,7 @@ int main(int argc,char *argv[]){
 	printf("Socket initialized, waiting for requests.\n\n");
 	// Setup done
 
-	pthread_create(&tid1, NULL, setrep, NULL);
+	//pthread_create(&tid1, NULL, setrep, NULL);
 	pthread_create(&tid2, NULL, replica_manager, NULL);
 
 	while(online){
@@ -509,10 +709,10 @@ int main(int argc,char *argv[]){
 			//printf("\nopcode is %hi\n\n",login_request.opcode);
 			//printf("\ndata is %s\n\n",login_request.data);
 			if (session_port > 0){
+				session_count++;
 				login_reply.opcode = ACK;
 				login_reply.seqnum = (short) session_port;
 				sendto(main_socket, (char *) &login_reply, PACKETSIZE, 0, (struct sockaddr *)&client, client_len);
-				replication(login_request);
 				printf("Login succesful...\n\n");
 			}
 			else{

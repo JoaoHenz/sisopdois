@@ -21,6 +21,7 @@
 #define BUFFERSIZE 1250
 #define EVENT_SIZE  ( sizeof (struct inotify_event) )
 #define BUF_LEN     ( 1024 * ( EVENT_SIZE + 16 ) )
+#define PING 10
 
 struct packet {
 	short int opcode;
@@ -482,6 +483,31 @@ void* thread_interface(void *vargp){
 		}
 
     pthread_exit((void *)NULL);
+}
+
+void* thread_frontend(){
+	SOCKET frontend_socket;
+	int n, frontend_len, from_len, online = 1;
+	struct sockaddr_in frontend, from;
+	struct packet message;
+
+	if((frontend_socket = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
+		exit(1);
+	}
+	memset((void *) &frontend,0,sizeof(struct sockaddr_in));
+	frontend.sin_family = AF_INET;
+	frontend.sin_addr.s_addr = htonl(INADDR_ANY);
+	frontend.sin_port = htons(4000);
+	frontend_len = sizeof(frontend);
+	if (bind(frontend_socket,(struct sockaddr *) &frontend, frontend_len)) {
+		exit(1);
+	}
+	while(online){
+		n = recvfrom(frontend_socket, (char *) &message, PACKETSIZE, 0, (struct sockaddr *) &from, (socklen_t *) &from_len);
+		if(n && message.opcode == PING){
+			serv_addr = from;
+		}
+	}
 }
 
 int main(int argc,char *argv[]){
