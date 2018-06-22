@@ -458,7 +458,7 @@ void *replica_manager(){
 			if(ping.seqnum < ((short) local_server_id)){
 				pthread_create(&tide, NULL, election_answer, NULL);
 				pthread_create(&tide, NULL, election_ping, NULL);
-				printf("Elected Primary is %d\n\n", primary_server_id);
+				printf("1 - Elected Primary is %d\n\n", primary_server_id);
 			}
 			// Else respond
 			reply.opcode = ACK;
@@ -479,12 +479,12 @@ void *replica_manager(){
 			if(0 > recvfrom(rm_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *) &from, (socklen_t *) &from_len)){
 				pthread_create(&tide, NULL, election_answer, NULL);
 				pthread_create(&tide, NULL, election_ping, NULL);
-				printf("Elected Primary is %d\n\n", primary_server_id);
+				printf("2 - Elected Primary is %d\n\n", primary_server_id);
 			}
 			else if(reply.seqnum < ((short) local_server_id) && reply.opcode == ACK){
 				pthread_create(&tide, NULL, election_answer, NULL);
 				pthread_create(&tide, NULL, election_ping, NULL);
-				printf("Elected Primary is %d\n\n", primary_server_id);
+				printf("3 - Elected Primary is %d\n\n", primary_server_id);
 			}
 		}
 
