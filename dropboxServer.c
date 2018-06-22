@@ -445,6 +445,7 @@ void *replica_manager(){
 		exit(1);
 	}
 	//
+	printf("Primary is %d\n\n", primary_server_id);
 	while(online){
 		if(primary_server_id == local_server_id){
 			// Primary server case, turn off Timeout
@@ -457,6 +458,7 @@ void *replica_manager(){
 			if(ping.seqnum > ((short) local_server_id)){
 				pthread_create(&tide, NULL, election_answer, NULL);
 				pthread_create(&tide, NULL, election_ping, NULL);
+				printf("ElectedPrimary is %d\n\n", primary_server_id);
 			}
 			// Else respond
 			reply.opcode = ACK;
@@ -477,13 +479,15 @@ void *replica_manager(){
 			if(0 > recvfrom(rm_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *) &from, (socklen_t *) &from_len)){
 				pthread_create(&tide, NULL, election_answer, NULL);
 				pthread_create(&tide, NULL, election_ping, NULL);
+				printf("Elected Primary is %d\n\n", primary_server_id);
 			}
 			else if(reply.seqnum < ((short) local_server_id) && reply.opcode == ACK){
 				pthread_create(&tide, NULL, election_answer, NULL);
 				pthread_create(&tide, NULL, election_ping, NULL);
+				printf("Elected Primary is %d\n\n", primary_server_id);
 			}
 		}
-		printf("Primary is %d\n\n", primary_server_id);
+
 		if(local_server_id == primary_server_id){
 			inform_frontend_clients = 1;
 		}
@@ -642,7 +646,7 @@ int main(int argc,char *argv[]){
 	session_count = 0;
 	// num_primario indicates which server is primary: 1 -> a, 2 -> b, 3 -> this one
 	if (argc!=5){
-		printf("Escreva no formato: ./dropboxServer <endereço_do_server_a> <endereço_do_server_b> <id_do_server_local>\n\n");
+		printf("Escreva no formato: ./dropboxServer <endereço_do_server_1> <endereço_do_server_2> <endereço_do_server_3> <id_do_server_local>\n\n");
 		return 0;
 	}
 	strcpy(ip_server_1,argv[1]);
