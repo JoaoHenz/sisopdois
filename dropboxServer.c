@@ -630,7 +630,7 @@ int main(int argc,char *argv[]){
 					sendto(main_socket, (char *) &login_reply, PACKETSIZE, 0, (struct sockaddr *)&client, client_len);
 					// Send to all other servers
 					for(i = 1; i < 4; i++){
-						if(i != local_server_id){
+						if(i != local_server_id  && local_server_id == primary_server_id){
 							aux_server = server_list[i];
 							aux_server.sin_port = htons(6000);
 							sendto(main_socket, (char *) &login_request, PACKETSIZE, 0, (struct sockaddr *)&aux_server, sizeof(struct sockaddr));
