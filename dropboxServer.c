@@ -542,7 +542,7 @@ int main(int argc,char *argv[]){
 	pthread_t tid1, tid2;
 	session_count = 0;
 	// num_primario indicates which server is primary: 1 -> a, 2 -> b, 3 -> this one
-	if (argc!=5){
+	if (argc!=6){
 		printf("Escreva no formato: ./dropboxServer <endereço_do_server_1> <endereço_do_server_2> <endereço_do_server_3> <id_do_server_local>\n\n");
 		return 0;
 	}
@@ -551,16 +551,15 @@ int main(int argc,char *argv[]){
 	strcpy(ip_server_3,argv[3]);
 	strcpy(strid,argv[4]);
 	local_server_id = atoi(strid);
+	strcpy(strid,argv[5]);
+	primary_server_id = atoi(strid);
 	inform_frontend_clients = 0;
 
-	primary_server_id = 1;
 	host_server_1 = gethostbyname(ip_server_1);
 	server_list[1].sin_family = AF_INET;
 	server_list[1].sin_port = htons(5000);
 	server_list[1].sin_addr = *((struct in_addr *)host_server_1->h_addr);
 	bzero(&(server_list[1].sin_zero), 8);
-	primary_server = server_list[1];
-	primary_len = sizeof(server_list[1]);
 	//
 	host_server_2 = gethostbyname(ip_server_2);
 	server_list[2].sin_family = AF_INET;
@@ -573,7 +572,9 @@ int main(int argc,char *argv[]){
 	server_list[3].sin_port = htons(5000);
 	server_list[3].sin_addr = *((struct in_addr *)host_server_3->h_addr);
 	bzero(&(server_list[3].sin_zero), 8);
-
+	//
+	primary_server = server_list[primary_server_id];
+	primary_len = sizeof(server_list[primary_server_id]);
 
 
 	for (i = 0; i < MAXCLIENTS; i++){
