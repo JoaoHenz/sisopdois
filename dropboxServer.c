@@ -476,8 +476,8 @@ void *replica_manager(){
 				printf("n is %d\n\n",n);
 				pthread_create(&tide, NULL, election_answer, NULL);
 				pthread_create(&tide, NULL, election_ping, NULL);
-				pthread_join(&tide,(void*) &n);
-				pthread_join(&tide,(void*) &n);
+				pthread_join(tide,(void*) &n);
+				pthread_join(tide,(void*) &n);
 				printf("2 - Elected Primary is %d\n\n", primary_server_id);
 			}
 			else{
