@@ -75,6 +75,7 @@ struct sockaddr_in server_election_list[4];
 struct sockaddr_in primary_server;
 int not_electing;
 int session_count;
+int election_setup = 0, answer_setup = 0;
 // Subroutines
 /*
 void replication(struct packet message){
@@ -347,16 +348,19 @@ void* election_answer(){
 	ping.seqnum = (short) local_server_id;
 
 	// Set up socket
-	if((rm_socket = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
-		exit(1);
-	}
-	memset((void *) &this_rm,0,sizeof(struct sockaddr_in));
-	this_rm.sin_family = AF_INET;
-	this_rm.sin_addr.s_addr = htonl(INADDR_ANY);
-	this_rm.sin_port = htons(rm_port);
-	this_len = sizeof(this_rm);
-	if (bind(rm_socket,(struct sockaddr *) &this_rm, this_len)) {
-		exit(1);
+	if(answer_setup == 0){
+		if((rm_socket = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
+			exit(1);
+		}
+		memset((void *) &this_rm,0,sizeof(struct sockaddr_in));
+		this_rm.sin_family = AF_INET;
+		this_rm.sin_addr.s_addr = htonl(INADDR_ANY);
+		this_rm.sin_port = htons(rm_port);
+		this_len = sizeof(this_rm);
+		if (bind(rm_socket,(struct sockaddr *) &this_rm, this_len)) {
+			exit(1);
+		}
+		answer_setup =11;
 	}
 	//
 	reply.opcode = ACK;
@@ -380,10 +384,29 @@ void* election_ping(){
 	struct sockaddr_in from;
 	int from_len;
 	SOCKET ping_socket;
-	int i, n;
+	int i, n, ping_len;
+	struct sockaddr_in pingaddr;
 
-	if ((ping_socket = socket(AF_INET, SOCK_DGRAM, 0)) == -1)
-		printf("ERROR opening socket");
+	// Socket setup
+	if(election_setup == 0){
+		if((ping_socket = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
+			printf("ERROR: Socket creation failure.\n");
+			exit(1);
+		}
+		memset((void *) &pingaddr,0,sizeof(struct sockaddr_in));
+		pingaddr.sin_family = AF_INET;
+		pingaddr.sin_addr.s_addr = htonl(INADDR_ANY);
+		pingaddr.sin_port = htons(MAIN_PORT);
+		ping_len = sizeof(ping);
+		if (bind(ping_socket,(struct sockaddr *) &pingaddr, ping_len)) {
+			printf("Binding error\n");
+			exit(1);
+		}
+		printf("Socket initialized, waiting for requests.\n\n");
+		election_setup = 1;
+	}
+	// Setup done
+
 	struct sockaddr_in election_s;
 	ping.opcode = PING;
 	ping.seqnum = local_server_id;
