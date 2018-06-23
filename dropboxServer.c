@@ -363,8 +363,6 @@ void *replica_manager(){
 	struct timeval tv;
 	tv.tv_sec = 5;
 	tv.tv_usec = 0;
-	ping.opcode = PING;
-	ping.seqnum = (short) local_server_id;
 	int n, first_ping = 1;
 
 	// Set up socket
@@ -388,8 +386,10 @@ void *replica_manager(){
 	while(online){
 		if(primary_server_id == local_server_id){
 			recvfrom(rm_socket, (char *) &ping, PACKETSIZE, 0, (struct sockaddr *) &from, (socklen_t *) &from_len);
-			sendto(rm_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *) &from, from_len);
-			printf("Got pinged, seqnum is %d\n\n",ping.seqnum);
+			if(ping.opcode == PING){
+				n = sendto(rm_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *) &from, from_len);
+				printf("Got pinged, seqnum is %d sent %d\n\n",ping.seqnum, n);
+			}
 		}
 		else{
 			tv.tv_sec = 4;
