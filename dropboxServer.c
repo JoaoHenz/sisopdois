@@ -393,20 +393,29 @@ void* election_ping(){
 	i = 1;
 	while(i < 4 && not_electing == 0){
 		printf("Iteration: %d\n\n",i);
-		election_s = server_list[i];
-		election_s.sin_port = htons(3000);
-		n = sendto(ping_socket, (char *) &ping, PACKETSIZE, 0, (struct sockaddr *)&election_s, primary_len);
-		while (n < 0){
-			printf("Pinging\n\n");
-			n = sendto(ping_socket, (char *) &ping, PACKETSIZE, 0, (struct sockaddr *)&election_s, primary_len);
-		}
-		n = recvfrom(ping_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *) &from, (socklen_t *) &from_len);
-		if(0 < n || local_server_id == 1){
+		if (local_server_id == i){
 			primary_server_id = i;
 			primary_server = server_list[i];
 			primary_len = sizeof(server_list[i]);
 			not_electing = 1;
 			printf("Chose %d as the new lead server\n\n",i);
+		}
+		else{
+			election_s = server_list[i];
+			election_s.sin_port = htons(3000);
+			n = sendto(ping_socket, (char *) &ping, PACKETSIZE, 0, (struct sockaddr *)&election_s, primary_len);
+			while (n < 0){
+				printf("Pinging\n\n");
+				n = sendto(ping_socket, (char *) &ping, PACKETSIZE, 0, (struct sockaddr *)&election_s, primary_len);
+			}
+			n = recvfrom(ping_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *) &from, (socklen_t *) &from_len);
+			if(0 < n){
+				primary_server_id = i;
+				primary_server = server_list[i];
+				primary_len = sizeof(server_list[i]);
+				not_electing = 1;
+				printf("Chose %d as the new lead server\n\n",i);
+			}
 		}
 		i++;
 	}
