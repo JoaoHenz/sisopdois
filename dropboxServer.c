@@ -71,11 +71,11 @@ struct hostent *host_server_1;
 struct hostent *host_server_2;
 struct hostent *host_server_3;
 struct sockaddr_in server_list[4];
-struct sockaddr_in server_election_list[4];
+int server_activity[4];
 struct sockaddr_in primary_server;
 int not_electing;
 int session_count;
-int election_setup = 0, answer_setup = 0;
+//int election_setup = 0, answer_setup = 0;
 // Subroutines
 /*
 void replication(struct packet message){
@@ -330,11 +330,9 @@ int login(struct packet login_request){
 }
 
 // ========================================================================== //
-void* sync_server_manager(){
-	// Handle updating files to the non-primary servers
-	//(doesn't handle login, close or delete requests, those are duplicated elsewhere)
-}
 
+
+/*
 void* election_answer(){
 	SOCKET rm_socket;
 	struct sockaddr_in primary_rm, this_rm, from;
@@ -380,6 +378,7 @@ void* election_answer(){
 	}
 	pthread_exit(0);
 }
+
 
 void* election_ping(){
 	struct packet ping, reply;
@@ -455,6 +454,25 @@ void* election_ping(){
 	}
 	pthread_exit(0);
 }
+*/
+void* sync_server_manager(){
+	// Handle updating files to the non-primary servers
+	//(doesn't handle login, close or delete requests, those are duplicated elsewhere)
+}
+
+int election(){
+	int i, not_done = 1;
+	while(not_done){
+		if(server_activity[i] == 1){
+			not_done = 0;
+			primary_server_id = i;
+			primary_server = server_list[i];
+		}
+		i++;
+	}
+	return 0;
+}
+
 
 void *replica_manager(){
 	pthread_t thread_elect, thread_answer;
@@ -498,10 +516,12 @@ void *replica_manager(){
 			if (n < 0){
 				printf("Ping timeout\n\n");
 				not_electing = 0;
-				pthread_create(&thread_elect, NULL, election_ping, NULL);
-				pthread_create(&thread_answer, NULL, election_answer, NULL);
-				pthread_join(thread_elect,(void *) &n);
-				pthread_join(thread_answer,(void *) &n);
+				server_activity[primary_server_id] = 0;
+				election();
+			//	pthread_create(&thread_elect, NULL, election_ping, NULL);
+			//	pthread_create(&thread_answer, NULL, election_answer, NULL);
+			//	pthread_join(thread_elect,(void *) &n);
+			//	pthread_join(thread_answer,(void *) &n);
 			}
 			printf("Received opcode %hi, pkt #%hi\n\n", reply.opcode, reply.seqnum);
 		}
@@ -515,6 +535,10 @@ void *replica_manager(){
 			n = sendto(rm_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *) &(server_list[ping.seqnum]), from_len);
 			while(n < 0){
 				n = sendto(rm_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *) &(server_list[ping.seqnum]), from_len);
+			}
+			if (reply.seqnum > local_server_id){
+				server_activity[primary_server_id] = 1;
+				election();
 			}
 			printf("Sent opcode %hi, pkt #%hi\n\n", reply.opcode, reply.seqnum);
 		}
@@ -537,6 +561,10 @@ int main(int argc,char *argv[]){
 	if (argc!=5){
 		printf("Escreva no formato: ./dropboxServer <endereço_do_server_1> <endereço_do_server_2> <endereço_do_server_3> <id_do_server_local>\n\n");
 		return 0;
+	}
+
+	for(i = 1; i < 4; i++){
+		server_activity[i] = 1;
 	}
 	strcpy(ip_server_1,argv[1]);
 	strcpy(ip_server_2,argv[2]);
