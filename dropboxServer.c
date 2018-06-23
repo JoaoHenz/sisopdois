@@ -619,26 +619,30 @@ int main(int argc,char *argv[]){
 			printf("ERROR: Package reception error.\n\n");
 		}
 		else{
-			session_port = login(login_request);
-			//printf("\nopcode is %hi\n\n",login_request.opcode);
-			//printf("\ndata is %s\n\n",login_request.data);
-			if (session_port > 0){
-				session_count++;
-				login_reply.opcode = ACK;
-				login_reply.seqnum = (short) session_port;
-				sendto(main_socket, (char *) &login_reply, PACKETSIZE, 0, (struct sockaddr *)&client, client_len);
-				// Send to all other servers
-				for(i = 1; i < 4; i++){
-					aux_server = server_list[i];
-					aux_server.sin_port = htons(6000);
-					sendto(main_socket, (char *) &login_request, PACKETSIZE, 0, (struct sockaddr *)&aux_server, sizeof(struct sockaddr));
+			if(login_request.opcode == LOGIN){
+				session_port = login(login_request);
+				//printf("\nopcode is %hi\n\n",login_request.opcode);
+				//printf("\ndata is %s\n\n",login_request.data);
+				if (session_port > 0){
+					session_count++;
+					login_reply.opcode = ACK;
+					login_reply.seqnum = (short) session_port;
+					sendto(main_socket, (char *) &login_reply, PACKETSIZE, 0, (struct sockaddr *)&client, client_len);
+					// Send to all other servers
+					for(i = 1; i < 4; i++){
+						if(i != local_server_id){
+							aux_server = server_list[i];
+							aux_server.sin_port = htons(6000);
+							sendto(main_socket, (char *) &login_request, PACKETSIZE, 0, (struct sockaddr *)&aux_server, sizeof(struct sockaddr));
+						}
+					}
+					printf("Login succesful...\n\n");
 				}
-				printf("Login succesful...\n\n");
-			}
-			else{
-				login_reply.opcode = NACK;
-				sendto(main_socket, (char *) &login_reply, PACKETSIZE, 0, (struct sockaddr *)&client, client_len);
-				printf("ERROR: Login unsuccesful...\n\n");
+				else{
+					login_reply.opcode = NACK;
+					sendto(main_socket, (char *) &login_reply, PACKETSIZE, 0, (struct sockaddr *)&client, client_len);
+					printf("ERROR: Login unsuccesful...\n\n");
+				}
 			}
 			//
 		}
