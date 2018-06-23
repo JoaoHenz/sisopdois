@@ -333,18 +333,74 @@ void* sync_server_manager(){
 	//(doesn't handle login, close or delete requests, those are duplicated elsewhere)
 }
 
-void* election(){
-	if(primary_server_id == 1){
-			primary_server_id = 2;
-			primary_server = server_list[2];
-			primary_len = sizeof(server_list[2]);
+void* election_answer(){
+	SOCKET rm_socket;
+	struct sockaddr_in primary_rm, this_rm, from;
+	struct packet ping, reply;
+	int n, i, j, rm_port = 3600, this_len, from_len, online = 1;
+	struct timeval tv;
+	tv.tv_sec = 1;
+	tv.tv_usec = 0;
+	ping.opcode = PING;
+	ping.seqnum = (short) local_server_id;
+
+	// Set up socket
+	if((rm_socket = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
+		exit(1);
 	}
-	else if(primary_server_id == 2){
-			primary_server_id = 3;
-			primary_server = server_list[3];
-			primary_len = sizeof(server_list[3]);
+	memset((void *) &this_rm,0,sizeof(struct sockaddr_in));
+	this_rm.sin_family = AF_INET;
+	this_rm.sin_addr.s_addr = htonl(INADDR_ANY);
+	this_rm.sin_port = htons(rm_port);
+	this_len = sizeof(this_rm);
+	if (bind(rm_socket,(struct sockaddr *) &this_rm, this_len)) {
+		exit(1);
 	}
-	printf("New primary server is %d, local server id is %d\n\n", primary_server_id, local_server_id);
+	//
+	reply.opcode = ACK;
+	reply.seqnum = local_server_id;
+	while(not_electing == 0){
+		recvfrom(rm_socket, (char *) &ping, PACKETSIZE, 0, (struct sockaddr *) &from, (socklen_t *) &from_len);
+		n = sendto(rm_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *)&from, from_len);
+		while (n < 0){
+			n = sendto(rm_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *)&from, from_len);
+		}
+	}
+	pthread_exit(0);
+}
+
+void* election_ping(){
+	struct packet ping, reply;
+	struct sockaddr_in from;
+	int from_len;
+	SOCKET ping_socket;
+	int i, n;
+
+	if ((ping_socket = socket(AF_INET, SOCK_DGRAM, 0)) == -1)
+		printf("ERROR opening socket");
+	struct sockaddr_in election_s;
+	ping.opcode = PING;
+	ping.seqnum = (short) local_server_id;
+	struct timeval tv;
+	tv.tv_sec = 2;
+	tv.tv_usec = 0;
+	if (setsockopt(ping_socket, SOL_SOCKET, SO_RCVTIMEO,&tv,sizeof(tv)) < 0) {
+		perror("Error");
+	}
+
+	for (i = 1; i < 4; i++){
+		election_s = server_list[i];
+		election_s.sin_port = htons(3000);
+		n = sendto(ping_socket, (char *) &ping, PACKETSIZE, 0, (struct sockaddr *)&election_s, primary_len);
+		while (n < 0){
+			n = sendto(ping_socket, (char *) &ping, PACKETSIZE, 0, (struct sockaddr *)&election_s, primary_len);
+		}
+		if(0 < recvfrom(ping_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *) &from, (socklen_t *) &from_len) || local_server_id == 1){
+			primary_server_id = i;
+			primary_server = server_list[i];
+			primary_len = sizeof(server_list[i]);
+		}
+	}
 	not_electing = 1;
 	if(local_server_id == primary_server_id){
 		inform_frontend_clients = session_count;
@@ -393,8 +449,11 @@ void *replica_manager(){
 			n = recvfrom(rm_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *) &from, (socklen_t *) &from_len);
 			if (n < 0){
 				printf("Ping timeout\n\n");
-				pthread_create(&thread_elect, NULL, election, NULL);
+				not_electing = 0;
+				pthread_create(&thread_elect, NULL, election_ping, NULL);
+				pthread_create(&thread_answer, NULL, election_answer, NULL);
 				pthread_join(thread_elect,(void *) &n);
+				pthread_join(thread_answer,(void *) &n);
 			}
 			printf("Received opcode %hi, pkt #%hi\n\n", reply.opcode, reply.seqnum);
 		}
