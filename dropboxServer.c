@@ -363,9 +363,9 @@ void* election_answer(){
 	while(not_electing == 0){
 		n = recvfrom(rm_socket, (char *) &ping, PACKETSIZE, 0, (struct sockaddr *) &from, (socklen_t *) &from_len);
 		printf("Received bytes: %d\n\n", n);
-		n = sendto(rm_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *)&from, from_len);
+		n = sendto(rm_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *)&(server_list[ping.seqnum]), from_len);
 		while (n < 0){
-			n = sendto(rm_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *)&from, from_len);
+			n = sendto(rm_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *)&(server_list[ping.seqnum]), from_len);
 		}
 	}
 	pthread_exit(0);
@@ -382,7 +382,7 @@ void* election_ping(){
 		printf("ERROR opening socket");
 	struct sockaddr_in election_s;
 	ping.opcode = PING;
-	ping.seqnum = (short) local_server_id;
+	ping.seqnum = local_server_id;
 	struct timeval tv;
 	tv.tv_sec = 2;
 	tv.tv_usec = 0;
