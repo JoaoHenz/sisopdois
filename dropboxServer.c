@@ -338,6 +338,7 @@ void* election_answer(){
 	SOCKET rm_socket;
 	struct sockaddr_in primary_rm, this_rm, from;
 	struct packet ping, reply;
+	struct sockaddr_in election_s;
 	int n, i, j, rm_port = 3000, this_len, from_len, online = 1;
 	struct timeval tv;
 	tv.tv_sec = 1;
@@ -363,10 +364,13 @@ void* election_answer(){
 	while(not_electing == 0){
 		n = recvfrom(rm_socket, (char *) &ping, PACKETSIZE, 0, (struct sockaddr *) &from, (socklen_t *) &from_len);
 		printf("Received bytes: %d\n\n", n);
-		n = sendto(rm_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *)&(server_list[ping.seqnum]), from_len);
+		election_s = server_list[ping.seqnum];
+		election_s.sin_port = htons(3000);
+		n = sendto(rm_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *)&election_s, from_len);
 		while (n < 0){
-			n = sendto(rm_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *)&(server_list[ping.seqnum]), from_len);
+			n = sendto(rm_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *)&election_s, from_len);
 		}
+		printf("Sent bytes %d to server %d\n\n",n,ping.seqnum);
 	}
 	pthread_exit(0);
 }
@@ -384,7 +388,7 @@ void* election_ping(){
 	ping.opcode = PING;
 	ping.seqnum = local_server_id;
 	struct timeval tv;
-	tv.tv_sec = 2;
+	tv.tv_sec = 3;
 	tv.tv_usec = 0;
 	if (setsockopt(ping_socket, SOL_SOCKET, SO_RCVTIMEO,&tv,sizeof(tv)) < 0) {
 		perror("Error");
