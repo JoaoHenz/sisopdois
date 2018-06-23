@@ -335,7 +335,7 @@ void* sync_server_manager(){
 	//(doesn't handle login, close or delete requests, those are duplicated elsewhere)
 }
 
-void* election_ping(){
+void* election(){
 	if(primary_server_id == 1){
 			primary_server_id = 2;
 			primary_server = server_2;
@@ -365,7 +365,7 @@ void *replica_manager(){
 	tv.tv_usec = 0;
 	ping.opcode = PING;
 	ping.seqnum = (short) local_server_id;
-	int n;
+	int n, first_ping = 1;
 
 	// Set up socket
 	if((rm_socket = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
@@ -399,7 +399,11 @@ void *replica_manager(){
 			sleep(1);
 			sendto(rm_socket, (char *) &ping, PACKETSIZE, 0, (struct sockaddr *) &primary_server, primary_len);
 			n = recvfrom(rm_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *) &from, (socklen_t *) &from_len);
+			first_ping = 0;
 			printf("Got %d bytes pkg from primary\n\n", n);
+			if (n < 0 && first_ping){
+				pthread_create(&tide,NULL,election,NULL);
+			}
 		}
 	}
 }
