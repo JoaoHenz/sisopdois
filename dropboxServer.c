@@ -456,9 +456,9 @@ void *replica_manager(){
 			if (setsockopt(rm_socket, SOL_SOCKET, SO_RCVTIMEO,&tv,sizeof(tv)) < 0) {
 				perror("Error");
 			}
-			recvfrom(rm_socket, (char *) &ping, PACKETSIZE, 0, (struct sockaddr *) &from, (socklen_t *) &from_len);
+			n = recvfrom(rm_socket, (char *) &ping, PACKETSIZE, 0, (struct sockaddr *) &from, (socklen_t *) &from_len);
 			// If pinged by higher priority server, start election
-			printf("Got pinged by %d\n\n",ping.seqnum);
+			printf("Got pinged by %d and n is %d\n\n",ping.seqnum, n);
 			if(ping.seqnum < ((short) local_server_id)){
 				pthread_create(&tide, NULL, election_answer, NULL);
 				pthread_create(&tide, NULL, election_ping, NULL);
@@ -471,7 +471,7 @@ void *replica_manager(){
 		}
 		else{
 			// Secondary server case, set up Timeout
-			tv.tv_sec = 2;
+			tv.tv_sec = 6;
 			if (setsockopt(rm_socket, SOL_SOCKET, SO_RCVTIMEO,&tv,sizeof(tv)) < 0) {
 				perror("Error");
 			}
