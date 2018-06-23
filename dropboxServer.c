@@ -74,7 +74,7 @@ struct sockaddr_in server_1;
 struct sockaddr_in server_2;
 struct sockaddr_in server_3;
 struct sockaddr_in primary_server;
-int elected;
+int not_electing;
 int session_count;
 // Subroutines
 /*
@@ -347,7 +347,7 @@ void* election(){
 			primary_len = sizeof(server_2);
 	}
 	printf("New primary server is %d, local server id is %d\n\n", primary_server_id, local_server_id);
-	elected = 1;
+	not_electing = 1;
 	if(local_server_id == primary_server_id){
 		inform_frontend_clients = session_count;
 	}
@@ -364,6 +364,7 @@ void *replica_manager(){
 	tv.tv_sec = 5;
 	tv.tv_usec = 0;
 	int n, first_ping = 1;
+	not_electing = 1;
 
 	// Set up socket
 	if((rm_socket = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
@@ -384,7 +385,7 @@ void *replica_manager(){
 	ping.opcode = PING;
 	ping.seqnum = 0;
 	while(online){
-		if(primary_server_id == local_server_id){
+		if(primary_server_id == local_server_id && not_electing){
 			recvfrom(rm_socket, (char *) &ping, PACKETSIZE, 0, (struct sockaddr *) &from, (socklen_t *) &from_len);
 			if(ping.opcode == PING){
 				n = sendto(rm_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *) &from, from_len);
@@ -394,7 +395,7 @@ void *replica_manager(){
 				printf("Got pinged, seqnum is %hi sent %d\n\n",ping.seqnum,n);
 			}
 		}
-		else{
+		else if (not_electing){
 			tv.tv_sec = 4;
 			if (setsockopt(rm_socket, SOL_SOCKET, SO_RCVTIMEO,&tv,sizeof(tv)) < 0) {
 				perror("Error");
@@ -404,6 +405,7 @@ void *replica_manager(){
 			n = recvfrom(rm_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *) &from, (socklen_t *) &from_len);
 			printf("Got %d bytes pkg from primary\n\n", n);
 			if (n < 0 && first_ping == 0){
+				not_electing = 0;
 				pthread_create(&tide,NULL,election,NULL);
 			}
 			first_ping = 0;
