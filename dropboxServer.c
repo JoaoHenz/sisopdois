@@ -448,11 +448,13 @@ void* election_ping(){
 		}
 		i++;
 	}
-	sleep(3);
+	printf("Got here\n\n");
+	sleep(1);
 	not_electing = 1;
 	if(local_server_id == primary_server_id){
 		inform_frontend_clients = session_count;
 	}
+	printf("Done here\n\n");
 	pthread_exit(0);
 }
 //
