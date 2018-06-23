@@ -393,7 +393,8 @@ void *replica_manager(){
 			n = recvfrom(rm_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *) &from, (socklen_t *) &from_len);
 			if (n < 0){
 				printf("Ping timeout\n\n");
-				sleep(100);
+				pthread_create(&thread_elect, NULL, election, NULL);
+				pthread_join(thread_elect,(void *) &n);
 			}
 			printf("Received opcode %hi, pkt #%hi\n\n", reply.opcode, reply.seqnum);
 		}
