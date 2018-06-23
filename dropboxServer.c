@@ -368,8 +368,10 @@ void* election_answer(){
 	while(not_electing == 0){
 		n = recvfrom(rm_socket, (char *) &ping, PACKETSIZE, 0, (struct sockaddr *) &from, (socklen_t *) &from_len);
 		printf("Received bytes: %d\n\n", n);
-		election_s = server_list[ping.seqnum];
+		election_s.sin_family = AF_INET;
 		election_s.sin_port = htons(2000);
+		election_s.sin_addr = server_list[ping.seqnum].sin_addr;
+		bzero(&(election_s.sin_zero), 8);
 		n = sendto(rm_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *)&election_s, sizeof(election_s));
 		while (n < 0){
 			n = sendto(rm_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *)&election_s, sizeof(election_s));
