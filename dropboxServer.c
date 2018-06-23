@@ -429,7 +429,7 @@ void *replica_manager(){
 	struct packet ping, reply;
 	int i, j, rm_port = 5000, this_len, from_len, online = 1;
 	struct timeval tv;
-	tv.tv_sec = 1;
+	tv.tv_sec = 5;
 	tv.tv_usec = 0;
 	ping.opcode = PING;
 	ping.seqnum = (short) local_server_id;
