@@ -210,9 +210,9 @@ void *session_manager(void* args){
 	char filename[MAXNAME];
 	SOCKET session_socket;
 	struct sockaddr client;
-	struct sockaddr_in session;
+	struct sockaddr_in session, aux_server;
 	struct packet request, reply;
-	int c_id, s_id, session_port, session_len, client_len = sizeof(struct sockaddr_in), active = 1;
+	int i, c_id, s_id, session_port, session_len, client_len = sizeof(struct sockaddr_in), active = 1;
 	int has_informed = 0;
 
 	// Getting thread arguments
@@ -286,12 +286,22 @@ void *session_manager(void* args){
 				sendto(session_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *)&client, client_len);
 				strncpy(filename, request.data, MAXNAME);
 				delete_file(filename, session_socket, client_list[c_id].user_id);
+				for(i = 1; i < 4; i++){
+					aux_server = server_list[i];
+					aux_server.sin_port = htons(3000);
+					sendto(session_socket, (char *) &request, PACKETSIZE, 0, (struct sockaddr *)&aux_server, sizeof(struct sockaddr));
+				}
 				break;
 			case CLOSE:
 				reply.opcode = ACK;
 				sendto(session_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *)&client, client_len);
 				client_list[c_id].session_active[s_id] = 0;
 				session_count--;
+				for(i = 1; i < 4; i++){
+					aux_server = server_list[i];
+					aux_server.sin_port = htons(3000);
+					sendto(session_socket, (char *) &request, PACKETSIZE, 0, (struct sockaddr *)&aux_server, sizeof(struct sockaddr));
+				}
 				pthread_exit(0); // Should have an 'ack' by the client allowing us to terminate, ideally!
 				break;
 			default:
@@ -536,7 +546,7 @@ int main(int argc,char *argv[]){
 	char strid[100];
 	SOCKET main_socket;
 	struct sockaddr client;
-	struct sockaddr_in server;
+	struct sockaddr_in server, aux_server;
 	struct packet login_request, login_reply;
 	int i, j, session_port, server_len, client_len = sizeof(struct sockaddr_in), online = 1;
 	pthread_t tid1, tid2;
@@ -617,6 +627,12 @@ int main(int argc,char *argv[]){
 				login_reply.opcode = ACK;
 				login_reply.seqnum = (short) session_port;
 				sendto(main_socket, (char *) &login_reply, PACKETSIZE, 0, (struct sockaddr *)&client, client_len);
+				// Send to all other servers
+				for(i = 1; i < 4; i++){
+					aux_server = server_list[i];
+					aux_server.sin_port = htons(3000);
+					sendto(main_socket, (char *) &login_request, PACKETSIZE, 0, (struct sockaddr *)&aux_server, sizeof(struct sockaddr));
+				}
 				printf("Login succesful...\n\n");
 			}
 			else{
