@@ -433,6 +433,7 @@ void *replica_manager(){
 	tv.tv_usec = 0;
 	ping.opcode = PING;
 	ping.seqnum = (short) local_server_id;
+	int n;
 
 	// Set up socket
 	if((rm_socket = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
@@ -481,7 +482,7 @@ void *replica_manager(){
 			// If hasn't received heartbeat response or if the responding manager has lower priority, start Election
 			n = recvfrom(rm_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *) &from, (socklen_t *) &from_len);
 			if(n < 0){
-				printf("n is %d\n\n",n)
+				printf("n is %d\n\n",n);
 				pthread_create(&tide, NULL, election_answer, NULL);
 				pthread_create(&tide, NULL, election_ping, NULL);
 				printf("2 - Elected Primary is %d\n\n", primary_server_id);
