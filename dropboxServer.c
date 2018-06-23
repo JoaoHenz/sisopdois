@@ -461,10 +461,11 @@ void *replica_manager(){
 			//printf("Got pinged by %d and n is %d\n\n",ping.seqnum, n);
 		}
 		else{
-			tv.tv_sec = 5;
+			tv.tv_sec = 2;
 			if (setsockopt(rm_socket, SOL_SOCKET, SO_RCVTIMEO,&tv,sizeof(tv)) < 0) {
 				perror("Error");
 			}
+			sleep(1);
 			sendto(rm_socket, (char *) &ping, PACKETSIZE, 0, (struct sockaddr *) &primary_server, primary_len);
 			n = recvfrom(rm_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *) &from, (socklen_t *) &from_len);
 			if(n < 0){
