@@ -341,11 +341,11 @@ void* election_ping(){
 			primary_server = server_2;
 			primary_len = sizeof(server_2);
 	}
-	if(primary_server_id == 2){
+	else if(primary_server_id == 2){
 			primary_server_id = 3;
 			primary_server = server_2;
 			primary_len = sizeof(server_2);
-	}
+	} 
 	printf("New primary server is %d, local server id is %d\n\n", primary_server_id, local_server_id);
 	elected = 1;
 	if(local_server_id == primary_server_id){
@@ -382,6 +382,7 @@ void *replica_manager(){
 	//
 	printf("Primary is %d\n\n", primary_server_id);
 	reply.opcode = ACK;
+	reply.seqnum = local_server_id;
 	ping.opcode = PING;
 	ping.seqnum = 0;
 	while(online){
