@@ -401,7 +401,7 @@ void *replica_manager(){
 			n = recvfrom(rm_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *) &from, (socklen_t *) &from_len);
 			first_ping = 0;
 			printf("Got %d bytes pkg from primary\n\n", n);
-			if (n < 0 && first_ping){
+			if (n < 0 && first_ping == 0){
 				pthread_create(&tide,NULL,election,NULL);
 			}
 		}
