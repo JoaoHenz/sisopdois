@@ -498,7 +498,7 @@ void *replica_manager(){
 			}
 			printf("Sent opcode %hi, pkt #%hi\n\n", ping.opcode, ping.seqnum);
 			n = recvfrom(rm_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *) &from, (socklen_t *) &from_len);
-			if (n < 0){
+			if (n < 0 || ping.seqnum < reply.seqnum){
 				printf("Ping timeout\n\n");
 				not_electing = 0;
 				pthread_create(&thread_elect, NULL, election_ping, NULL);
@@ -517,6 +517,12 @@ void *replica_manager(){
 			n = sendto(rm_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *) &(server_list[ping.seqnum]), from_len);
 			while(n < 0){
 				n = sendto(rm_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *) &(server_list[ping.seqnum]), from_len);
+			}
+			if(ping.seqnum < local_server_id){
+				not_electing = 0;
+				pthread_create(&thread_elect, NULL, election_ping, NULL);
+				pthread_create(&thread_answer, NULL, election_answer, NULL);
+				pthread_join(thread_elect,(void *) &n);
 			}
 			printf("Sent opcode %hi, pkt #%hi\n\n", reply.opcode, reply.seqnum);
 		}
