@@ -478,7 +478,7 @@ void *replica_manager(){
 			ping.opcode = PING;
 			ping.seqnum = (short) local_server_id;
 			// Send pings
-			sendto(rm_socket, (char *) &ping, PACKETSIZE, 0, (struct sockaddr *)&primary_server, primary_len);
+			sendto(rm_socket, (char *) &ping, PACKETSIZE, 0, (struct sockaddr *) &primary_server, primary_len);
 			// If hasn't received heartbeat response or if the responding manager has lower priority, start Election
 			n = recvfrom(rm_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *) &from, (socklen_t *) &from_len);
 			if(n < 0){
@@ -492,6 +492,7 @@ void *replica_manager(){
 				pthread_create(&tide, NULL, election_ping, NULL);
 				printf("3 - Elected Primary is %d\n\n", primary_server_id);
 			}
+			printf("Got ping reply from %d\n\n",reply.seqnum);
 		}
 
 		if(local_server_id == primary_server_id){
