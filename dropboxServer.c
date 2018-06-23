@@ -370,9 +370,9 @@ void* election_answer(){
 		printf("Received bytes: %d\n\n", n);
 		election_s = server_list[ping.seqnum];
 		election_s.sin_port = htons(2000);
-		n = sendto(rm_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *)&election_s, from_len);
+		n = sendto(rm_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *)&election_s, sizeof(election_s));
 		while (n < 0){
-			n = sendto(rm_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *)&election_s, from_len);
+			n = sendto(rm_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *)&election_s, sizeof(election_s));
 		}
 		printf("Sent bytes %d to server %d\n\n",n,ping.seqnum);
 	}
@@ -384,7 +384,7 @@ void* election_ping(){
 	struct sockaddr_in from;
 	int from_len;
 	SOCKET ping_socket;
-	int i, n, ping_len;
+	int i, n, ping_len, not_done = 1;
 	struct sockaddr_in pingaddr;
 
 	// Socket setup
@@ -411,28 +411,29 @@ void* election_ping(){
 	ping.opcode = PING;
 	ping.seqnum = local_server_id;
 	struct timeval tv;
-	tv.tv_sec = 3;
+	tv.tv_sec = 5;
 	tv.tv_usec = 0;
 	if (setsockopt(ping_socket, SOL_SOCKET, SO_RCVTIMEO,&tv,sizeof(tv)) < 0) {
 		perror("Error");
 	}
 	printf("Starting election process\n\n");
 	i = 1;
-	while(i < 4 && not_electing == 0){
+	while(i < 4 && not_done == 1){
 		printf("Iteration: %d\n\n",i);
 		if (local_server_id == i){
 			primary_server_id = i;
 			primary_server = server_list[i];
 			primary_len = sizeof(server_list[i]);
 			printf("Chose %d as the new lead server\n\n",i);
+			not_done = 0;
 		}
 		else{
 			election_s = server_list[i];
 			election_s.sin_port = htons(3000);
-			n = sendto(ping_socket, (char *) &ping, PACKETSIZE, 0, (struct sockaddr *)&election_s, primary_len);
+			n = sendto(ping_socket, (char *) &ping, PACKETSIZE, 0, (struct sockaddr *)&election_s, sizeof(election_s));
 			while (n < 0){
 				printf("Pinging\n\n");
-				n = sendto(ping_socket, (char *) &ping, PACKETSIZE, 0, (struct sockaddr *)&election_s, primary_len);
+				n = sendto(ping_socket, (char *) &ping, PACKETSIZE, 0, (struct sockaddr *)&election_s, sizeof(election_s));
 			}
 			n = recvfrom(ping_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *) &from, (socklen_t *) &from_len);
 			if(0 < n){
@@ -440,11 +441,12 @@ void* election_ping(){
 				primary_server = server_list[i];
 				primary_len = sizeof(server_list[i]);
 				printf("Chose %d as the new lead server\n\n",i);
+				not_done = 0;
 			}
 		}
 		i++;
 	}
-	sleep(1);
+	sleep(3);
 	not_electing = 1;
 	if(local_server_id == primary_server_id){
 		inform_frontend_clients = session_count;
