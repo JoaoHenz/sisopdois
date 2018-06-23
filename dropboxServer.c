@@ -388,7 +388,10 @@ void *replica_manager(){
 			recvfrom(rm_socket, (char *) &ping, PACKETSIZE, 0, (struct sockaddr *) &from, (socklen_t *) &from_len);
 			if(ping.opcode == PING){
 				n = sendto(rm_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *) &from, from_len);
-				printf("Got pinged, seqnum is %d sent %d\n\n",ping.seqnum, n);
+				while(n < 0){
+					n = sendto(rm_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *) &from, from_len);
+				}
+				printf("Got pinged, seqnum is %hi sent %d\n\n",ping.seqnum,n);
 			}
 		}
 		else{
