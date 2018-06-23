@@ -381,7 +381,10 @@ void *replica_manager(){
 	ping.seqnum = local_server_id;
 	while(online){
 		if (primary_server_id != local_server_id){
-			sleep(1);
+			tv.tv_sec = 5;
+			if (setsockopt(rm_socket, SOL_SOCKET, SO_RCVTIMEO,&tv,sizeof(tv)) < 0) {
+				perror("Error");
+			}
 			n = sendto(rm_socket, (char *) &ping, PACKETSIZE, 0, (struct sockaddr *) &primary_server, primary_len);
 			while(n < 0){
 				n = sendto(rm_socket, (char *) &ping, PACKETSIZE, 0, (struct sockaddr *) &primary_server, primary_len);
@@ -391,7 +394,10 @@ void *replica_manager(){
 			printf("Received opcode %hi, pkt #%hi\n\n", reply.opcode, reply.seqnum);
 		}
 		else{
-			sleep(1);
+			tv.tv_sec = 600;
+			if (setsockopt(rm_socket, SOL_SOCKET, SO_RCVTIMEO,&tv,sizeof(tv)) < 0) {
+				perror("Error");
+			}
 			n = recvfrom(rm_socket, (char *) &ping, PACKETSIZE, 0, (struct sockaddr *) &from, (socklen_t *) &from_len);
 			printf("Received opcode %hi, pkt #%hi\n\n", ping.opcode, ping.seqnum);
 			n = sendto(rm_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *) &(server_list[ping.seqnum]), from_len);
