@@ -398,7 +398,7 @@ void *replica_manager(){
 			printf("Received opcode %hi, pkt #%hi\n\n", ping.opcode, ping.seqnum);
 			n = sendto(rm_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *) &(server_list[ping.seqnum]), from_len);
 			while(n < 0){
-				n = sendto(rm_socket, (char *) &ping, PACKETSIZE, 0, (struct sockaddr *) &primary_server, primary_len);
+				n = sendto(rm_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *) &(server_list[ping.seqnum]), from_len);
 			}
 			printf("Sent opcode %hi, pkt #%hi\n\n", reply.opcode, reply.seqnum);
 			reply.seqnum += 1;
