@@ -335,88 +335,16 @@ void* sync_server_manager(){
 	//(doesn't handle login, close or delete requests, those are duplicated elsewhere)
 }
 
-void* election_answer(){
-	SOCKET rm_socket;
-	struct sockaddr_in primary_rm, this_rm, from;
-	struct packet ping, reply;
-	int i, j, rm_port = 3000, this_len, from_len, online = 1;
-	struct timeval tv;
-	elected = 0;
-	tv.tv_sec = 1;
-	tv.tv_usec = 0;
-	ping.opcode = PING;
-	ping.seqnum = (short) local_server_id;
-
-	// Set up socket
-	if((rm_socket = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
-		exit(1);
-	}
-	memset((void *) &this_rm,0,sizeof(struct sockaddr_in));
-	this_rm.sin_family = AF_INET;
-	this_rm.sin_addr.s_addr = htonl(INADDR_ANY);
-	this_rm.sin_port = htons(rm_port);
-	this_len = sizeof(this_rm);
-	if (bind(rm_socket,(struct sockaddr *) &this_rm, this_len)) {
-		exit(1);
-	}
-	//
-	reply.opcode = ACK;
-	reply.seqnum = local_server_id;
-	while(elected == 0){
-		recvfrom(rm_socket, (char *) &ping, PACKETSIZE, 0, (struct sockaddr *) &from, (socklen_t *) &from_len);
-		sendto(rm_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *)&from, from_len);
-	}
-	pthread_exit(0);
-}
-
 void* election_ping(){
-	struct packet ping, reply;
-	struct sockaddr_in from;
-	int from_len;
-	SOCKET ping_socket;
-	printf("oi!\n\n");
-
-	if ((ping_socket = socket(AF_INET, SOCK_DGRAM, 0)) == -1)
-		printf("ERROR opening socket");
-	struct sockaddr_in election_s1 = server_1;
-	struct sockaddr_in election_s2 = server_2;
-	struct sockaddr_in election_s3 = server_3;
-	election_s1.sin_port = htons(3000);
-	election_s2.sin_port = htons(3000);
-	election_s3.sin_port = htons(3000);
-	ping.opcode = PING;
-	ping.seqnum = (short) local_server_id;
-	struct timeval tv;
-	tv.tv_sec = 1;
-	tv.tv_usec = 0;
-	if (setsockopt(ping_socket, SOL_SOCKET, SO_RCVTIMEO,&tv,sizeof(tv)) < 0) {
-		perror("Error");
-	}
-	printf("boi!\n\n");
-	sendto(ping_socket, (char *) &ping, PACKETSIZE, 0, (struct sockaddr *)&election_s1, primary_len);
-	if((0 < recvfrom(ping_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *) &from, (socklen_t *) &from_len)) || local_server_id == 1){
-		if(reply.opcode = ACK && reply.seqnum == 1){
-			primary_server_id = 1;
-			primary_server = server_1;
-			primary_len = sizeof(server_1);
-			printf("Case 1 \n\n");
-		}
-	}
-	sendto(ping_socket, (char *) &ping, PACKETSIZE, 0, (struct sockaddr *)&election_s2, primary_len);
-	if((0 < recvfrom(ping_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *) &from, (socklen_t *) &from_len)) || local_server_id == 2){
-		if(reply.opcode = ACK && reply.seqnum == 2){
+	if(primary_server_id == 1){
 			primary_server_id = 2;
 			primary_server = server_2;
 			primary_len = sizeof(server_2);
-		}
 	}
-	sendto(ping_socket, (char *) &ping, PACKETSIZE, 0, (struct sockaddr *)&election_s3, primary_len);
-	if((0 < recvfrom(ping_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *) &from, (socklen_t *) &from_len)) || local_server_id == 3){
-		if(reply.opcode = ACK && reply.seqnum == 3){
+	if(primary_server_id == 2){
 			primary_server_id = 3;
-			primary_server = server_3;
-			primary_len = sizeof(server_3);
-		}
+			primary_server = server_2;
+			primary_len = sizeof(server_2);
 	}
 	printf("New primary server is %d, local server id is %d\n\n", primary_server_id, local_server_id);
 	elected = 1;
@@ -454,15 +382,14 @@ void *replica_manager(){
 	//
 	printf("Primary is %d\n\n", primary_server_id);
 	reply.opcode = ACK;
-	reply.seqnum = (short) local_server_id;
 	ping.opcode = PING;
-	ping.seqnum = (short) local_server_id;
+	ping.seqnum = 0;
 	while(online){
 		if(primary_server_id == local_server_id){
 			// Primary server case, turn off Timeout
 			recvfrom(rm_socket, (char *) &ping, PACKETSIZE, 0, (struct sockaddr *) &from, (socklen_t *) &from_len);
 			sendto(rm_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *) &from, from_len);
-			//printf("Got pinged by %d and n is %d\n\n",ping.seqnum, n);
+			printf("Got pinged, seqnum is %d\n\n",ping.seqnum);
 		}
 		else{
 			tv.tv_sec = 4;
@@ -474,15 +401,14 @@ void *replica_manager(){
 			n = recvfrom(rm_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *) &from, (socklen_t *) &from_len);
 			if(n < 0){
 				printf("n is %d\n\n",n);
-				pthread_create(&tide, NULL, election_answer, NULL);
 				pthread_create(&tide, NULL, election_ping, NULL);
-				pthread_join(tide,(void*) &n);
 				pthread_join(tide,(void*) &n);
 				printf("2 - Elected Primary is %d\n\n", primary_server_id);
 			}
 			else{
 				printf("Got ping reply from %d\n\n",reply.seqnum);
 			}
+			ping.seqnum += ping.seqnum;
 		}
 	}
 }
