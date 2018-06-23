@@ -399,11 +399,11 @@ void *replica_manager(){
 			sleep(1);
 			sendto(rm_socket, (char *) &ping, PACKETSIZE, 0, (struct sockaddr *) &primary_server, primary_len);
 			n = recvfrom(rm_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *) &from, (socklen_t *) &from_len);
-			first_ping = 0;
 			printf("Got %d bytes pkg from primary\n\n", n);
 			if (n < 0 && first_ping == 0){
 				pthread_create(&tide,NULL,election,NULL);
 			}
+			first_ping = 0;
 		}
 	}
 }
