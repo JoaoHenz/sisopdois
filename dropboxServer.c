@@ -369,7 +369,7 @@ void* election_answer(){
 		n = recvfrom(rm_socket, (char *) &ping, PACKETSIZE, 0, (struct sockaddr *) &from, (socklen_t *) &from_len);
 		printf("Received bytes: %d\n\n", n);
 		election_s = server_list[ping.seqnum];
-		election_s.sin_port = htons(3000);
+		election_s.sin_port = htons(2000);
 		n = sendto(rm_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *)&election_s, from_len);
 		while (n < 0){
 			n = sendto(rm_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *)&election_s, from_len);
@@ -396,7 +396,7 @@ void* election_ping(){
 		memset((void *) &pingaddr,0,sizeof(struct sockaddr_in));
 		pingaddr.sin_family = AF_INET;
 		pingaddr.sin_addr.s_addr = htonl(INADDR_ANY);
-		pingaddr.sin_port = htons(MAIN_PORT);
+		pingaddr.sin_port = htons(2000);
 		ping_len = sizeof(ping);
 		if (bind(ping_socket,(struct sockaddr *) &pingaddr, ping_len)) {
 			printf("Binding error\n");
