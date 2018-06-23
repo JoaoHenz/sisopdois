@@ -339,7 +339,7 @@ void* election_answer(){
 	SOCKET rm_socket;
 	struct sockaddr_in primary_rm, this_rm, from;
 	struct packet ping, reply;
-	int i, j, rm_port = 3600, this_len, from_len, online = 1;
+	int i, j, rm_port = 3000, this_len, from_len, online = 1;
 	struct timeval tv;
 	elected = 0;
 	tv.tv_sec = 1;
@@ -366,6 +366,7 @@ void* election_answer(){
 		recvfrom(rm_socket, (char *) &ping, PACKETSIZE, 0, (struct sockaddr *) &from, (socklen_t *) &from_len);
 		sendto(rm_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *)&from, from_len);
 	}
+	pthread_exit(0);
 }
 
 void* election_ping(){
@@ -373,6 +374,7 @@ void* election_ping(){
 	struct sockaddr_in from;
 	int from_len;
 	SOCKET ping_socket;
+	printf("oi!\n\n");
 
 	if ((ping_socket = socket(AF_INET, SOCK_DGRAM, 0)) == -1)
 		printf("ERROR opening socket");
@@ -390,8 +392,9 @@ void* election_ping(){
 	if (setsockopt(ping_socket, SOL_SOCKET, SO_RCVTIMEO,&tv,sizeof(tv)) < 0) {
 		perror("Error");
 	}
+	printf("boi!\n\n");
 	sendto(ping_socket, (char *) &ping, PACKETSIZE, 0, (struct sockaddr *)&election_s1, primary_len);
-	if(0 < recvfrom(ping_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *) &from, (socklen_t *) &from_len) || local_server_id == 1){
+	if((0 < recvfrom(ping_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *) &from, (socklen_t *) &from_len)) || local_server_id == 1){
 		if(reply.opcode = ACK && reply.seqnum == 1){
 			primary_server_id = 1;
 			primary_server = server_1;
@@ -400,7 +403,7 @@ void* election_ping(){
 		}
 	}
 	sendto(ping_socket, (char *) &ping, PACKETSIZE, 0, (struct sockaddr *)&election_s2, primary_len);
-	if(0 < recvfrom(ping_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *) &from, (socklen_t *) &from_len) || local_server_id == 2){
+	if((0 < recvfrom(ping_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *) &from, (socklen_t *) &from_len)) || local_server_id == 2){
 		if(reply.opcode = ACK && reply.seqnum == 2){
 			primary_server_id = 2;
 			primary_server = server_2;
@@ -408,7 +411,7 @@ void* election_ping(){
 		}
 	}
 	sendto(ping_socket, (char *) &ping, PACKETSIZE, 0, (struct sockaddr *)&election_s3, primary_len);
-	if(0 < recvfrom(ping_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *) &from, (socklen_t *) &from_len) || local_server_id == 3){
+	if((0 < recvfrom(ping_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *) &from, (socklen_t *) &from_len)) || local_server_id == 3){
 		if(reply.opcode = ACK && reply.seqnum == 3){
 			primary_server_id = 3;
 			primary_server = server_3;
@@ -420,6 +423,7 @@ void* election_ping(){
 	if(local_server_id == primary_server_id){
 		inform_frontend_clients = session_count;
 	}
+	pthread_exit(0);
 }
 
 void *replica_manager(){
