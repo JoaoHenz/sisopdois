@@ -392,8 +392,9 @@ void* election_ping(){
 	printf("Starting election process\n\n");
 	i = 1;
 	while(i < 4 && not_electing == 0){
-	election_s = server_list[i];
-	election_s.sin_port = htons(3000);
+		printf("Iteration: %d\n\n",i);
+		election_s = server_list[i];
+		election_s.sin_port = htons(3000);
 		n = sendto(ping_socket, (char *) &ping, PACKETSIZE, 0, (struct sockaddr *)&election_s, primary_len);
 		while (n < 0){
 			printf("Pinging\n\n");
@@ -406,9 +407,6 @@ void* election_ping(){
 			primary_len = sizeof(server_list[i]);
 			not_electing = 1;
 			printf("Chose %d as the new lead server\n\n",i);
-		}
-		else{
-			printf("Iteration: %d\n\n",i);
 		}
 		i++;
 	}
