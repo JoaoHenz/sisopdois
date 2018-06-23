@@ -384,12 +384,13 @@ void *replica_manager(){
 	while(online){
 		if (primary_server_id != local_server_id){
 			sendto(rm_socket, (char *) &ping, PACKETSIZE, 0, (struct sockaddr *) &primary_server, primary_len);
-			printf("Sent opcode %hi, I am server #%hi\n\n",ping);
+			printf("Sent opcode %hi, I am server #%hi\n\n", ping.opcode, ping.seqnum);
 		}
 		else{
-			recvfrom(rm_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *) &from, (socklen_t *) &from_len);
-			printf("Received opcode %hi, I am server #%hi\n\n");
+			recvfrom(rm_socket, (char *) &ping, PACKETSIZE, 0, (struct sockaddr *) &from, (socklen_t *) &from_len);
+			printf("Received opcode %hi, I am server #%hi\n\n", ping.opcode, ping.seqnum);
 		}
+	}
 }
 
 //============================================================================
