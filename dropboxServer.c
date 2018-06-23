@@ -70,9 +70,7 @@ char ip_server_3[20];
 struct hostent *host_server_1;
 struct hostent *host_server_2;
 struct hostent *host_server_3;
-struct sockaddr_in server_1;
-struct sockaddr_in server_2;
-struct sockaddr_in server_3;
+struct sockaddr_in server_list[4];
 struct sockaddr_in primary_server;
 int not_electing;
 int session_count;
@@ -338,13 +336,13 @@ void* sync_server_manager(){
 void* election(){
 	if(primary_server_id == 1){
 			primary_server_id = 2;
-			primary_server = server_2;
-			primary_len = sizeof(server_2);
+			primary_server = server_list[2];
+			primary_len = sizeof(server_list[2]);
 	}
 	else if(primary_server_id == 2){
 			primary_server_id = 3;
-			primary_server = server_2;
-			primary_len = sizeof(server_2);
+			primary_server = server_list[3];
+			primary_len = sizeof(server_list[3]);
 	}
 	printf("New primary server is %d, local server id is %d\n\n", primary_server_id, local_server_id);
 	not_electing = 1;
@@ -381,23 +379,22 @@ void *replica_manager(){
 	reply.seqnum = local_server_id;
 	ping.opcode = PING;
 	ping.seqnum = local_server_id;
-	ping.seqnum = 0;
 	reply.seqnum = 0;
 	while(online){
 		if (primary_server_id != local_server_id){
 			sleep(1);
 			sendto(rm_socket, (char *) &ping, PACKETSIZE, 0, (struct sockaddr *) &primary_server, primary_len);
-			printf("Sent opcode %hi, I am server #%hi\n\n", ping.opcode, ping.seqnum);
+			printf("Sent opcode %hi, pkt #%hi\n\n", ping.opcode, ping.seqnum);
 			recvfrom(rm_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *) &from, (socklen_t *) &from_len);
-			printf("Sent opcode %hi, I am server #%hi\n\n", reply.opcode, reply.seqnum);
+			printf("Sent opcode %hi, pkt #%hi\n\n", reply.opcode, reply.seqnum);
 			ping.seqnum += ping.seqnum;
 		}
 		else{
 			sleep(1);
 			recvfrom(rm_socket, (char *) &ping, PACKETSIZE, 0, (struct sockaddr *) &from, (socklen_t *) &from_len);
-			printf("Received opcode %hi, from server #%hi\n\n", ping.opcode, ping.seqnum);
-			sendto(rm_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *) &from, from_len);
-			printf("Sent opcode %hi, I am server #%hi\n\n", reply.opcode, reply.seqnum);
+			printf("Received opcode %hi, pkt #%hi\n\n", ping.opcode, ping.seqnum);
+			sendto(rm_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *) &(server_list[ping.seqnum]), from_len);
+			printf("Sent opcode %hi, pkt #%hi\n\n", reply.opcode, reply.seqnum);
 			reply.seqnum += reply.seqnum;
 		}
 	}
@@ -429,24 +426,24 @@ int main(int argc,char *argv[]){
 
 	primary_server_id = 1;
 	host_server_1 = gethostbyname(ip_server_1);
-	server_1.sin_family = AF_INET;
-	server_1.sin_port = htons(5000);
-	server_1.sin_addr = *((struct in_addr *)host_server_1->h_addr);
-	bzero(&(server_1.sin_zero), 8);
-	primary_server = server_1;
-	primary_len = sizeof(server_1);
+	server_list[1].sin_family = AF_INET;
+	server_list[1].sin_port = htons(5000);
+	server_list[1].sin_addr = *((struct in_addr *)host_server_1->h_addr);
+	bzero(&(server_list[1].sin_zero), 8);
+	primary_server = server_list[1];
+	primary_len = sizeof(server_list[1]);
 	//
 	host_server_2 = gethostbyname(ip_server_2);
-	server_2.sin_family = AF_INET;
-	server_2.sin_port = htons(5000);
-	server_2.sin_addr = *((struct in_addr *)host_server_2->h_addr);
-	bzero(&(server_2.sin_zero), 8);
+	server_list[2].sin_family = AF_INET;
+	server_list[2].sin_port = htons(5000);
+	server_list[2].sin_addr = *((struct in_addr *)host_server_2->h_addr);
+	bzero(&(server_list[2].sin_zero), 8);
 	//
 	host_server_3 = gethostbyname(ip_server_3);
-	server_3.sin_family = AF_INET;
-	server_3.sin_port = htons(5000);
-	server_3.sin_addr = *((struct in_addr *)host_server_3->h_addr);
-	bzero(&(server_3.sin_zero), 8);
+	server_list[3].sin_family = AF_INET;
+	server_list[3].sin_port = htons(5000);
+	server_list[3].sin_addr = *((struct in_addr *)host_server_3->h_addr);
+	bzero(&(server_list[3].sin_zero), 8);
 
 	for (i = 0; i < MAXCLIENTS; i++){
 		for(j = 0; j < MAXSESSIONS; j++){
