@@ -451,30 +451,21 @@ void *replica_manager(){
 	printf("Primary is %d\n\n", primary_server_id);
 	reply.opcode = ACK;
 	reply.seqnum = (short) local_server_id;
+	ping.opcode = PING;
+	ping.seqnum = (short) local_server_id;
 	while(online){
 		if(primary_server_id == local_server_id){
 			// Primary server case, turn off Timeout
-			n = recvfrom(rm_socket, (char *) &ping, PACKETSIZE, 0, (struct sockaddr *) &from, (socklen_t *) &from_len);
-			sendto(rm_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *)&from, from_len);
-			if(ping.seqnum < ((short) local_server_id)){
-				pthread_create(&tide, NULL, election_answer, NULL);
-				pthread_create(&tide, NULL, election_ping, NULL);
-				printf("1 - Elected Primary is %d\n\n", primary_server_id);
-			}
-			printf("Got pinged by %d and n is %d\n\n",ping.seqnum, n);
+			recvfrom(rm_socket, (char *) &ping, PACKETSIZE, 0, (struct sockaddr *) &from, (socklen_t *) &from_len);
+			sendto(rm_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *) &from, from_len);
+			//printf("Got pinged by %d and n is %d\n\n",ping.seqnum, n);
 		}
 		else{
-			// Secondary server case, set up Timeout
 			tv.tv_sec = 5;
 			if (setsockopt(rm_socket, SOL_SOCKET, SO_RCVTIMEO,&tv,sizeof(tv)) < 0) {
 				perror("Error");
 			}
-			ping.opcode = PING;
-			ping.seqnum = (short) local_server_id;
-			// Send pings
-			sleep(1);
 			sendto(rm_socket, (char *) &ping, PACKETSIZE, 0, (struct sockaddr *) &primary_server, primary_len);
-			// If hasn't received heartbeat response or if the responding manager has lower priority, start Election
 			n = recvfrom(rm_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *) &from, (socklen_t *) &from_len);
 			if(n < 0){
 				printf("n is %d\n\n",n);
@@ -482,159 +473,14 @@ void *replica_manager(){
 				pthread_create(&tide, NULL, election_ping, NULL);
 				printf("2 - Elected Primary is %d\n\n", primary_server_id);
 			}
-			else if(reply.seqnum < ((short) local_server_id)){
-				pthread_create(&tide, NULL, election_answer, NULL);
-				pthread_create(&tide, NULL, election_ping, NULL);
-				printf("3 - Elected Primary is %d\n\n", primary_server_id);
-			}
-			printf("Got ping reply from %d\n\n",reply.seqnum);
-		}
-
-		if(local_server_id == primary_server_id){
-			inform_frontend_clients = 1;
-		}
-	}
-}
-
-/*
-void elect_primary(){
-	int i = 0;
-	while(i < MAXSERVERS && serverlist.active[i] == 0){
-		i++;
-	}
-	if (i < MAXSERVERS){
-		primary_id = i;
-	}
-	if (primary_id == server_id || i >= MAXSERVERS){
-		is_primary = TRUE;
-		primary_id = server_id;
-	}
-}
-
-int update_server_list(struct packet reply){
-	char *data;
-	int i;
-	memcpy((void *) &serverlist,reply.data,sizeof(data));
-	for(i = 0; i < MAXSERVERS; i++){
-		printf("Server #%d is %d\n\n",i, serverlist.active[i]);
-	}
-}
-
-int insert_in_server_list(struct sockaddr_in new_server){
-	int i = 0;
-	while(i < MAXSERVERS && serverlist.active[i] != 0){
-		i++;
-	}
-	if (i < MAXSERVERS){
-		serverlist.active[i] = 1;
-		serverlist.addr[i] = new_server;
-		return i;
-	}
-	return -1;
-}
-
-void *replica_manager(){
-	SOCKET rm_socket;
-	struct sockaddr_in primary_rm, this_rm, from;
-	struct packet ping, ping_reply;
-	int i, j, rm_port, this_len, from_len, primary_len = sizeof(struct sockaddr_in), online = 1;
-	struct hostent *primary_host;
-	struct timeval tv;
-	tv.tv_sec = 0;
-	tv.tv_usec = 500000;
-	ping.opcode = PING;
-	ping.seqnum = NONE;
-	// Socket setup
-	server_id = -1;
-	rm_port = 5000; // Set port!
-	if((rm_socket = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
-		exit(1);
-	}
-	memset((void *) &this_rm,0,sizeof(struct sockaddr_in));
-	this_rm.sin_family = AF_INET;
-	this_rm.sin_addr.s_addr = htonl(INADDR_ANY);
-	this_rm.sin_port = htons(rm_port);
-	this_len = sizeof(this_rm);
-	if (bind(rm_socket,(struct sockaddr *) &this_rm, this_len)) {
-		exit(1);
-	}
-	if (strcmp(host,"127.0.0.1") == 0){
-		is_primary = TRUE;
-		ping.seqnum = 0;
-		server_id = insert_in_server_list(this_rm);
-	}
-	else{
-		printf("Host is %s\n\n",host);
-		primary_host = gethostbyname(host);
-		primary_rm.sin_family = AF_INET;
-		primary_rm.sin_port = htons(5000);
-		primary_rm.sin_addr = *((struct in_addr *)primary_host->h_addr);
-		bzero(&(primary_rm.sin_zero), 8);
-	}
-
-	while(online){
-		printf("Primary is %d\n\n", primary_id);
-		// Check if you're the rm_primary
-		if (is_primary){
-			tv.tv_sec = 25;
-			tv.tv_usec = 0;
-			if (setsockopt(rm_socket, SOL_SOCKET, SO_RCVTIMEO,&tv,sizeof(tv)) < 0) {
-				perror("Error");
-			}
-			recvfrom(rm_socket, (char *) &ping, PACKETSIZE, 0, (struct sockaddr *) &from, (socklen_t *) &from_len);
-			if (ping.opcode == PING){
-				if(ping.seqnum == NONE){
-					ping_reply.seqnum = insert_in_server_list(from);
-				}
-				ping_reply.opcode = ACK;
-				strncpy(ping_reply.data, (char *) &serverlist, sizeof(struct serverlist));
-				sendto(rm_socket, (char *) &ping_reply, PACKETSIZE, 0, (struct sockaddr *)&from, primary_len);
+			else{
+				printf("Got ping reply from %d\n\n",reply.seqnum);
 			}
 		}
-		else{
-			// Send ping
-			sendto(rm_socket, (char *) &ping, PACKETSIZE, 0, (struct sockaddr *)&primary_rm, primary_len);
-			tv.tv_sec = 2;
-			tv.tv_usec = 0;
-			if (setsockopt(rm_socket, SOL_SOCKET, SO_RCVTIMEO,&tv,sizeof(tv)) < 0) {
-				perror("Error");
-			}
-			if (0 > recvfrom(rm_socket, (char *) &ping_reply, PACKETSIZE, 0, (struct sockaddr *) &from, (socklen_t *) &from_len)){
-				//Timeout!
-				serverlist.active[primary_id] = 0;
-				elect_primary();
-				primary_rm = serverlist.addr[primary_id];
-			}
-			else if(ping.seqnum == NONE){
-				ping.seqnum = ping_reply.seqnum;
-				server_id = (int) ping.seqnum;
-			}
-			update_server_list(ping_reply);
-		}
 	}
-	return 0;
 }
 
-void *setrep(){
-	struct sockaddr_in rep;
-	int rep_len;
-	if((rep_socket = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
-		printf("ERROR: Socket creation failure.\n");
-		exit(1);
-	}
-	memset((void *) &rep,0,sizeof(struct sockaddr_in));
-	rep.sin_family = AF_INET;
-	rep.sin_addr.s_addr = htonl(INADDR_ANY);
-	rep.sin_port = htons(4000);
-	rep_len = sizeof(rep);
-	if (bind(rep_socket,(struct sockaddr *) &rep, rep_len)) {
-		printf("Rep Binding error\n");
-		exit(1);
-	}
-	printf("Rep socket initialized.\n\n");
-	pthread_exit(0);
-}
-*/
+//============================================================================
 
 int main(int argc,char *argv[]){
 	//char host[20];
