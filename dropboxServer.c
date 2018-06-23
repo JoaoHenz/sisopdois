@@ -513,16 +513,17 @@ void *replica_manager(){
 			}
 			printf("Sent opcode %hi, pkt #%hi\n\n", ping.opcode, ping.seqnum);
 			n = recvfrom(rm_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *) &from, (socklen_t *) &from_len);
+			/*
 			if (n < 0){
 				printf("Ping timeout\n\n");
 				not_electing = 0;
 				server_activity[primary_server_id] = 0;
 				election();
+				*/
 			//	pthread_create(&thread_elect, NULL, election_ping, NULL);
 			//	pthread_create(&thread_answer, NULL, election_answer, NULL);
 			//	pthread_join(thread_elect,(void *) &n);
 			//	pthread_join(thread_answer,(void *) &n);
-			}
 			printf("Received opcode %hi, pkt #%hi\n\n", reply.opcode, reply.seqnum);
 		}
 		else{
@@ -536,10 +537,12 @@ void *replica_manager(){
 			while(n < 0){
 				n = sendto(rm_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *) &(server_list[ping.seqnum]), from_len);
 			}
+			/*
 			if (reply.seqnum > local_server_id){
 				server_activity[primary_server_id] = 1;
 				election();
 			}
+			*/
 			printf("Sent opcode %hi, pkt #%hi\n\n", reply.opcode, reply.seqnum);
 		}
 	}
