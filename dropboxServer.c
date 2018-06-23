@@ -71,6 +71,7 @@ struct hostent *host_server_1;
 struct hostent *host_server_2;
 struct hostent *host_server_3;
 struct sockaddr_in server_list[4];
+struct sockaddr_in server_election_list[4];
 struct sockaddr_in primary_server;
 int not_electing;
 int session_count;
@@ -360,7 +361,8 @@ void* election_answer(){
 	reply.opcode = ACK;
 	reply.seqnum = local_server_id;
 	while(not_electing == 0){
-		recvfrom(rm_socket, (char *) &ping, PACKETSIZE, 0, (struct sockaddr *) &from, (socklen_t *) &from_len);
+		n = recvfrom(rm_socket, (char *) &ping, PACKETSIZE, 0, (struct sockaddr *) &from, (socklen_t *) &from_len);
+		printf("Received bytes: %d\n\n", n);
 		n = sendto(rm_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *)&from, from_len);
 		while (n < 0){
 			n = sendto(rm_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *)&from, from_len);
@@ -390,8 +392,8 @@ void* election_ping(){
 	printf("Starting election process\n\n");
 	i = 1;
 	while(i < 4 && not_electing == 0){
-		election_s = server_list[i];
-		election_s.sin_port = htons(3000);
+	election_s = server_list[i];
+	election_s.sin_port = htons(3000);
 		n = sendto(ping_socket, (char *) &ping, PACKETSIZE, 0, (struct sockaddr *)&election_s, primary_len);
 		while (n < 0){
 			printf("Pinging\n\n");
@@ -525,6 +527,8 @@ int main(int argc,char *argv[]){
 	server_list[3].sin_port = htons(5000);
 	server_list[3].sin_addr = *((struct in_addr *)host_server_3->h_addr);
 	bzero(&(server_list[3].sin_zero), 8);
+
+
 
 	for (i = 0; i < MAXCLIENTS; i++){
 		for(j = 0; j < MAXSESSIONS; j++){
