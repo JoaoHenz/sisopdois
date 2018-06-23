@@ -397,7 +397,7 @@ void* election_ping(){
 			printf("Pinging\n\n");
 			n = sendto(ping_socket, (char *) &ping, PACKETSIZE, 0, (struct sockaddr *)&election_s, primary_len);
 		}
-		if(0 < recvfrom(ping_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *) &from, (socklen_t *) &from_len) || local_server_id == 1){
+		if(0 > recvfrom(ping_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *) &from, (socklen_t *) &from_len) || local_server_id == 1){
 			primary_server_id = i;
 			primary_server = server_list[i];
 			primary_len = sizeof(server_list[i]);
