@@ -465,17 +465,19 @@ void *replica_manager(){
 			//printf("Got pinged by %d and n is %d\n\n",ping.seqnum, n);
 		}
 		else{
-			tv.tv_sec = 2;
+			tv.tv_sec = 4;
 			if (setsockopt(rm_socket, SOL_SOCKET, SO_RCVTIMEO,&tv,sizeof(tv)) < 0) {
 				perror("Error");
 			}
-			sleep(1);
+			sleep(2);
 			sendto(rm_socket, (char *) &ping, PACKETSIZE, 0, (struct sockaddr *) &primary_server, primary_len);
 			n = recvfrom(rm_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *) &from, (socklen_t *) &from_len);
 			if(n < 0){
 				printf("n is %d\n\n",n);
 				pthread_create(&tide, NULL, election_answer, NULL);
 				pthread_create(&tide, NULL, election_ping, NULL);
+				pthread_join(&tide,(void*) &n);
+				pthread_join(&tide,(void*) &n);
 				printf("2 - Elected Primary is %d\n\n", primary_server_id);
 			}
 			else{
