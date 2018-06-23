@@ -337,7 +337,7 @@ void* election_answer(){
 	SOCKET rm_socket;
 	struct sockaddr_in primary_rm, this_rm, from;
 	struct packet ping, reply;
-	int n, i, j, rm_port = 3600, this_len, from_len, online = 1;
+	int n, i, j, rm_port = 3000, this_len, from_len, online = 1;
 	struct timeval tv;
 	tv.tv_sec = 1;
 	tv.tv_usec = 0;
@@ -387,8 +387,9 @@ void* election_ping(){
 	if (setsockopt(ping_socket, SOL_SOCKET, SO_RCVTIMEO,&tv,sizeof(tv)) < 0) {
 		perror("Error");
 	}
-
-	for (i = 1; i < 4; i++){
+	printf("Starting election process\n\n");
+	i = 1;
+	while(i < 4 && not_electing == 0){
 		election_s = server_list[i];
 		election_s.sin_port = htons(3000);
 		n = sendto(ping_socket, (char *) &ping, PACKETSIZE, 0, (struct sockaddr *)&election_s, primary_len);
@@ -399,9 +400,11 @@ void* election_ping(){
 			primary_server_id = i;
 			primary_server = server_list[i];
 			primary_len = sizeof(server_list[i]);
+			not_electing = 1;
+			printf("Chose %d as the new lead server\n\n",i);
 		}
+		i++;
 	}
-	not_electing = 1;
 	if(local_server_id == primary_server_id){
 		inform_frontend_clients = session_count;
 	}
