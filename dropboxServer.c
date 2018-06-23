@@ -355,7 +355,7 @@ void* election(){
 }
 
 void *replica_manager(){
-	pthread_t tide, tida;
+	pthread_t thread_elect, thread_answer;
 	SOCKET rm_socket;
 	struct sockaddr_in primary_rm, this_rm, from;
 	struct packet ping, reply;
@@ -365,8 +365,6 @@ void *replica_manager(){
 	tv.tv_usec = 0;
 	int n, first_ping = 1;
 	not_electing = 1;
-
-	// Set up socket
 	if((rm_socket = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
 		exit(1);
 	}
@@ -378,39 +376,20 @@ void *replica_manager(){
 	if (bind(rm_socket,(struct sockaddr *) &this_rm, this_len)) {
 		exit(1);
 	}
-	//
 	printf("Primary is %d\n\n", primary_server_id);
 	reply.opcode = ACK;
 	reply.seqnum = local_server_id;
 	ping.opcode = PING;
-	ping.seqnum = 0;
+	ping.seqnum = local_server_id;
 	while(online){
-		if(primary_server_id == local_server_id && not_electing){
-			recvfrom(rm_socket, (char *) &ping, PACKETSIZE, 0, (struct sockaddr *) &from, (socklen_t *) &from_len);
-			if(ping.opcode == PING){
-				n = sendto(rm_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *) &from, from_len);
-				while(n < 0){
-					n = sendto(rm_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *) &from, from_len);
-				}
-				printf("Got pinged, seqnum is %hi sent %d\n\n",ping.seqnum,n);
-			}
-		}
-		else if (not_electing){
-			tv.tv_sec = 4;
-			if (setsockopt(rm_socket, SOL_SOCKET, SO_RCVTIMEO,&tv,sizeof(tv)) < 0) {
-				perror("Error");
-			}
-			sleep(1);
+		if (primary_server_id != local_server_id){
 			sendto(rm_socket, (char *) &ping, PACKETSIZE, 0, (struct sockaddr *) &primary_server, primary_len);
-			n = recvfrom(rm_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *) &from, (socklen_t *) &from_len);
-			printf("Got %d bytes pkg from primary\n\n", n);
-			if (n < 0 && first_ping == 0){
-				not_electing = 0;
-				pthread_create(&tide,NULL,election,NULL);
-			}
-			first_ping = 0;
+			printf("Sent opcode %hi, I am server #%hi\n\n",ping);
 		}
-	}
+		else{
+			recvfrom(rm_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *) &from, (socklen_t *) &from_len);
+			printf("Received opcode %hi, I am server #%hi\n\n");
+		}
 }
 
 //============================================================================
