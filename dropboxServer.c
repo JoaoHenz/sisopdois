@@ -378,6 +378,7 @@ void* election_answer(){
 		}
 		printf("Sent bytes %d to server %d\n\n",n,ping.seqnum);
 	}
+	printf("Finished E_answer\n\n");
 	pthread_exit(0);
 }
 
