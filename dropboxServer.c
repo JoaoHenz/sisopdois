@@ -365,7 +365,7 @@ void* election_answer(){
 	//
 	reply.opcode = ACK;
 	reply.seqnum = local_server_id;
-	while(not_electing == 0){
+	while(online){
 		n = recvfrom(rm_socket, (char *) &ping, PACKETSIZE, 0, (struct sockaddr *) &from, (socklen_t *) &from_len);
 		printf("Received bytes: %d\n\n", n);
 		election_s.sin_family = AF_INET;
@@ -379,7 +379,6 @@ void* election_answer(){
 		printf("Sent bytes %d to server %d\n\n",n,ping.seqnum);
 	}
 	printf("Finished E_answer\n\n");
-	pthread_exit(0);
 }
 
 void* election_ping(){
@@ -505,7 +504,6 @@ void *replica_manager(){
 				pthread_create(&thread_elect, NULL, election_ping, NULL);
 				pthread_create(&thread_answer, NULL, election_answer, NULL);
 				pthread_join(thread_elect,(void *) &n);
-				pthread_join(thread_answer,(void *) &n);
 			}
 			printf("Received opcode %hi, pkt #%hi\n\n", reply.opcode, reply.seqnum);
 		}
