@@ -397,7 +397,7 @@ void* election_ping(){
 		pingaddr.sin_family = AF_INET;
 		pingaddr.sin_addr.s_addr = htonl(INADDR_ANY);
 		pingaddr.sin_port = htons(2000);
-		ping_len = sizeof(ping);
+		ping_len = sizeof(pingaddr);
 		if (bind(ping_socket,(struct sockaddr *) &pingaddr, ping_len)) {
 			printf("Binding error\n");
 			exit(1);
