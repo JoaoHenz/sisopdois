@@ -397,7 +397,6 @@ void* election_ping(){
 			primary_server_id = i;
 			primary_server = server_list[i];
 			primary_len = sizeof(server_list[i]);
-			not_electing = 1;
 			printf("Chose %d as the new lead server\n\n",i);
 		}
 		else{
@@ -413,12 +412,13 @@ void* election_ping(){
 				primary_server_id = i;
 				primary_server = server_list[i];
 				primary_len = sizeof(server_list[i]);
-				not_electing = 1;
 				printf("Chose %d as the new lead server\n\n",i);
 			}
 		}
 		i++;
 	}
+	sleep(1);
+	not_electing = 1;
 	if(local_server_id == primary_server_id){
 		inform_frontend_clients = session_count;
 	}
