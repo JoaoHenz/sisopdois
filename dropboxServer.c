@@ -345,7 +345,7 @@ void* election_ping(){
 			primary_server_id = 3;
 			primary_server = server_2;
 			primary_len = sizeof(server_2);
-	} 
+	}
 	printf("New primary server is %d, local server id is %d\n\n", primary_server_id, local_server_id);
 	elected = 1;
 	if(local_server_id == primary_server_id){
@@ -387,7 +387,6 @@ void *replica_manager(){
 	ping.seqnum = 0;
 	while(online){
 		if(primary_server_id == local_server_id){
-			// Primary server case, turn off Timeout
 			recvfrom(rm_socket, (char *) &ping, PACKETSIZE, 0, (struct sockaddr *) &from, (socklen_t *) &from_len);
 			sendto(rm_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *) &from, from_len);
 			printf("Got pinged, seqnum is %d\n\n",ping.seqnum);
@@ -397,19 +396,9 @@ void *replica_manager(){
 			if (setsockopt(rm_socket, SOL_SOCKET, SO_RCVTIMEO,&tv,sizeof(tv)) < 0) {
 				perror("Error");
 			}
-			sleep(2);
+			sleep(1);
 			sendto(rm_socket, (char *) &ping, PACKETSIZE, 0, (struct sockaddr *) &primary_server, primary_len);
 			n = recvfrom(rm_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *) &from, (socklen_t *) &from_len);
-			if(n < 0){
-				printf("n is %d\n\n",n);
-				pthread_create(&tide, NULL, election_ping, NULL);
-				pthread_join(tide,(void*) &n);
-				printf("2 - Elected Primary is %d\n\n", primary_server_id);
-			}
-			else{
-				printf("Got ping reply from %d\n\n",reply.seqnum);
-			}
-			ping.seqnum += ping.seqnum;
 		}
 	}
 }
