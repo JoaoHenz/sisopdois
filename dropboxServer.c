@@ -391,6 +391,10 @@ void *replica_manager(){
 			}
 			printf("Sent opcode %hi, pkt #%hi\n\n", ping.opcode, ping.seqnum);
 			n = recvfrom(rm_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *) &from, (socklen_t *) &from_len);
+			if (n < 0){
+				printf("Ping timeout\n\n");
+				sleep(100);
+			}
 			printf("Received opcode %hi, pkt #%hi\n\n", reply.opcode, reply.seqnum);
 		}
 		else{
