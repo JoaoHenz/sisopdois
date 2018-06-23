@@ -394,6 +394,7 @@ void* election_ping(){
 		election_s.sin_port = htons(3000);
 		n = sendto(ping_socket, (char *) &ping, PACKETSIZE, 0, (struct sockaddr *)&election_s, primary_len);
 		while (n < 0){
+			printf("Pinging\n\n");
 			n = sendto(ping_socket, (char *) &ping, PACKETSIZE, 0, (struct sockaddr *)&election_s, primary_len);
 		}
 		if(0 < recvfrom(ping_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *) &from, (socklen_t *) &from_len) || local_server_id == 1){
