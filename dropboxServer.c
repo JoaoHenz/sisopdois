@@ -486,9 +486,13 @@ void *replica_manager(){
 	reply.seqnum = local_server_id;
 	ping.opcode = PING;
 	ping.seqnum = local_server_id;
+
+	int timeouts = 0;
+
 	while(online){
+
 		if (primary_server_id != local_server_id){
-			tv.tv_sec = 5;
+			tv.tv_sec = 2;
 			if (setsockopt(rm_socket, SOL_SOCKET, SO_RCVTIMEO,&tv,sizeof(tv)) < 0) {
 				perror("Error");
 			}
@@ -498,7 +502,10 @@ void *replica_manager(){
 			}
 			printf("Sent opcode %hi, pkt #%hi\n\n", ping.opcode, ping.seqnum);
 			n = recvfrom(rm_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *) &from, (socklen_t *) &from_len);
-			if (n < 0 || ping.seqnum < reply.seqnum){
+			if(n<0)timeouts++;
+			else timeouts = 0;
+
+			if (timeouts >= 3 || ping.seqnum < reply.seqnum){
 				printf("Ping timeout\n\n");
 				not_electing = 0;
 				pthread_create(&thread_elect, NULL, election_ping, NULL);
