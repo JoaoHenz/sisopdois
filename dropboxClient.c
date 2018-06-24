@@ -38,7 +38,6 @@ struct sync_data {
 	char server_old[FILENAMESIZE][MAXARQINDIR];
 };
 
-
 int is_syncing = FALSE;
 int mustexit = FALSE;
 char userID[20];
@@ -297,7 +296,7 @@ void delete_file(char *filename){
 				recebeuack = TRUE;
 			}
 		}
-	
+
 	/*
 	ret = remove(path);
 
@@ -360,7 +359,38 @@ void executaSync(struct sync_data syncdata){
 
 }
 
-void sync_client(){
+void firstExecutaSync(struct sync_data syncdata){
+	int i;
+	char* path;
+	int ret=0;
+
+	//printf("\nO que deve ser baixado de novo do server:\n");
+	i=0;
+	while(strcmp(syncdata.server_new[i],"FIMDALISTA")!=0){
+		if (!encontrou(syncdata.server_new[i],syncdata.client_new)){
+			get_file(syncdata.server_new[i],devolvePathSyncDirBruto());
+			//printf(" - %s\n",syncdata.server_new[i]);
+		}
+		i++;
+	}
+	//printf("\nO que deve ser deletado no cliente:\n");
+	i=0;
+	while(strcmp(syncdata.client_new[i],"FIMDALISTA")!=0){
+		if (!encontrou(syncdata.client_new[i],syncdata.server_new)){
+			path = devolvePathSyncDir();
+			strcat(path,syncdata.client_new[i]);
+			ret = remove(path);
+			//printf(" - %s\n",path);
+		}
+		i++;
+	}
+	i=0;
+
+
+}
+
+
+void first_sync_client(){
 	char * path;
 	char * sendpath;
 	int length, i;
@@ -377,7 +407,6 @@ void sync_client(){
 	i = 0;
 	contador= 0;
 
-	if (primeiro_sync){
 		//Verifica o que há no cliente
 		j=0;
 		path = devolvePathSyncDir();
@@ -408,15 +437,29 @@ void sync_client(){
 		memcpy(syncdataglobal.server_old,syncdataglobal.server_new,FILENAMESIZE*MAXARQINDIR);
 
 
-
-		//printf("Chamando executa sync \n");
-		//executaSync(syncdataglobal);
+		firstExecutaSync(syncdataglobal);
 
 		primeiro_sync = FALSE;
+}
+
+void sync_client(){
+	char * path;
+	char * sendpath;
+	int length, i;
+	int fd;
+	int wd;
+	char buffer[BUF_LEN];
+	char * list_serverstr;
+	int contador;
+	char * nomearqremoto;
+	int contstr[1];
+	int j;
+
+	contstr[0] = 0;
+	i = 0;
+	contador= 0;
 
 
-	}
-	else{
 		//Verifica o que há no cliente
 		j=0;
 		path = devolvePathSyncDir();
@@ -447,7 +490,7 @@ void sync_client(){
 
 		memcpy(syncdataglobal.client_old,syncdataglobal.client_new,FILENAMESIZE*MAXARQINDIR);
 		memcpy(syncdataglobal.server_old,syncdataglobal.server_new,FILENAMESIZE*MAXARQINDIR);
-	}
+
 }
 
 void close_session(){
@@ -680,7 +723,7 @@ int main(int argc,char *argv[]){
 			actual_time = (double) clock() / CLOCKS_PER_SEC;
 			pthread_create(&(tid[0]), NULL, thread_interface,NULL);
 
-			sync_client();
+			first_sync_client();
 
 			while(!mustexit){ //exits here when the user digits 'quit' at the interface thread
 				actual_time = (double) clock() / CLOCKS_PER_SEC;
