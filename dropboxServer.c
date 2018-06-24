@@ -611,13 +611,16 @@ int main(int argc,char *argv[]){
 		else{
 			if(login_request.opcode == LOGIN){
 
-				if(primary_server_id == local_server_id){
+				/*if(primary_server_id == local_server_id){
 					int servo_id = local_server_id +1;
 
 					while(servo_id <= 3){
 						int recebeuack =  FALSE;
 						struct packet reply;
 						int length;
+
+						fprintf("\nAAAAA\n");
+
 
 						while(!recebeuack){
 							sendto(main_socket, (char *)&login_request, PACKETSIZE, 0, (const struct sockaddr *) &server_list[servo_id], sizeof(struct sockaddr_in));
@@ -628,7 +631,7 @@ int main(int argc,char *argv[]){
 							servo_id++;
 						}
 					}
-				}
+				}*/
 
 
 				session_port = login(login_request);
