@@ -70,12 +70,12 @@ char ip_server_3[20];
 struct hostent *host_server_1;
 struct hostent *host_server_2;
 struct hostent *host_server_3;
-struct sockaddr_in server_1;
-struct sockaddr_in server_2;
-struct sockaddr_in server_3;
+struct sockaddr_in server_list[4];
+struct sockaddr_in server_election_list[4];
 struct sockaddr_in primary_server;
-int elected;
+int not_electing;
 int session_count;
+int election_setup = 0, answer_setup = 0;
 // Subroutines
 /*
 void replication(struct packet message){
@@ -210,9 +210,9 @@ void *session_manager(void* args){
 	char filename[MAXNAME];
 	SOCKET session_socket;
 	struct sockaddr client;
-	struct sockaddr_in session;
+	struct sockaddr_in session, aux_server;
 	struct packet request, reply;
-	int c_id, s_id, session_port, session_len, client_len = sizeof(struct sockaddr_in), active = 1;
+	int i, c_id, s_id, session_port, session_len, client_len = sizeof(struct sockaddr_in), active = 1;
 	int has_informed = 0;
 
 	// Getting thread arguments
@@ -286,12 +286,22 @@ void *session_manager(void* args){
 				sendto(session_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *)&client, client_len);
 				strncpy(filename, request.data, MAXNAME);
 				delete_file(filename, session_socket, client_list[c_id].user_id);
+				for(i = 1; i < 4; i++){
+					aux_server = server_list[i];
+					aux_server.sin_port = htons(6000);
+					sendto(session_socket, (char *) &request, PACKETSIZE, 0, (struct sockaddr *)&aux_server, sizeof(struct sockaddr));
+				}
 				break;
 			case CLOSE:
 				reply.opcode = ACK;
 				sendto(session_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *)&client, client_len);
 				client_list[c_id].session_active[s_id] = 0;
 				session_count--;
+				for(i = 1; i < 4; i++){
+					aux_server = server_list[i];
+					aux_server.sin_port = htons(6000);
+					sendto(session_socket, (char *) &request, PACKETSIZE, 0, (struct sockaddr *)&aux_server, sizeof(struct sockaddr));
+				}
 				pthread_exit(0); // Should have an 'ack' by the client allowing us to terminate, ideally!
 				break;
 			default:
@@ -339,33 +349,46 @@ void* election_answer(){
 	SOCKET rm_socket;
 	struct sockaddr_in primary_rm, this_rm, from;
 	struct packet ping, reply;
-	int i, j, rm_port = 3600, this_len, from_len, online = 1;
+	struct sockaddr_in election_s;
+	int n, i, j, rm_port = 3000, this_len, from_len, online = 1;
 	struct timeval tv;
-	elected = 0;
 	tv.tv_sec = 1;
 	tv.tv_usec = 0;
 	ping.opcode = PING;
 	ping.seqnum = (short) local_server_id;
 
 	// Set up socket
-	if((rm_socket = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
-		exit(1);
-	}
-	memset((void *) &this_rm,0,sizeof(struct sockaddr_in));
-	this_rm.sin_family = AF_INET;
-	this_rm.sin_addr.s_addr = htonl(INADDR_ANY);
-	this_rm.sin_port = htons(rm_port);
-	this_len = sizeof(this_rm);
-	if (bind(rm_socket,(struct sockaddr *) &this_rm, this_len)) {
-		exit(1);
+	if(answer_setup == 0){
+		if((rm_socket = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
+			exit(1);
+		}
+		memset((void *) &this_rm,0,sizeof(struct sockaddr_in));
+		this_rm.sin_family = AF_INET;
+		this_rm.sin_addr.s_addr = htonl(INADDR_ANY);
+		this_rm.sin_port = htons(rm_port);
+		this_len = sizeof(this_rm);
+		if (bind(rm_socket,(struct sockaddr *) &this_rm, this_len)) {
+			exit(1);
+		}
+		answer_setup =11;
 	}
 	//
 	reply.opcode = ACK;
 	reply.seqnum = local_server_id;
-	while(elected == 0){
-		recvfrom(rm_socket, (char *) &ping, PACKETSIZE, 0, (struct sockaddr *) &from, (socklen_t *) &from_len);
-		sendto(rm_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *)&from, from_len);
+	while(online){
+		n = recvfrom(rm_socket, (char *) &ping, PACKETSIZE, 0, (struct sockaddr *) &from, (socklen_t *) &from_len);
+		printf("Received bytes: %d\n\n", n);
+		election_s.sin_family = AF_INET;
+		election_s.sin_port = htons(2000);
+		election_s.sin_addr = server_list[ping.seqnum].sin_addr;
+		bzero(&(election_s.sin_zero), 8);
+		n = sendto(rm_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *)&election_s, sizeof(election_s));
+		while (n < 0){
+			n = sendto(rm_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *)&election_s, sizeof(election_s));
+		}
+		printf("Sent bytes %d to server %d\n\n",n,ping.seqnum);
 	}
+	printf("Finished E_answer\n\n");
 }
 
 void* election_ping(){
@@ -373,69 +396,90 @@ void* election_ping(){
 	struct sockaddr_in from;
 	int from_len;
 	SOCKET ping_socket;
+	int i, n, ping_len, not_done = 1;
+	struct sockaddr_in pingaddr;
 
-	if ((ping_socket = socket(AF_INET, SOCK_DGRAM, 0)) == -1)
-		printf("ERROR opening socket");
-	struct sockaddr_in election_s1 = server_1;
-	struct sockaddr_in election_s2 = server_2;
-	struct sockaddr_in election_s3 = server_3;
-	election_s1.sin_port = htons(3000);
-	election_s2.sin_port = htons(3000);
-	election_s3.sin_port = htons(3000);
+	// Socket setup
+	if(election_setup == 0){
+		if((ping_socket = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
+			printf("ERROR: Socket creation failure.\n");
+			exit(1);
+		}
+		memset((void *) &pingaddr,0,sizeof(struct sockaddr_in));
+		pingaddr.sin_family = AF_INET;
+		pingaddr.sin_addr.s_addr = htonl(INADDR_ANY);
+		pingaddr.sin_port = htons(2000);
+		ping_len = sizeof(pingaddr);
+		if (bind(ping_socket,(struct sockaddr *) &pingaddr, ping_len)) {
+			printf("Binding error\n");
+			exit(1);
+		}
+		printf("Socket initialized, waiting for requests.\n\n");
+		election_setup = 1;
+	}
+	// Setup done
+
+	struct sockaddr_in election_s;
 	ping.opcode = PING;
-	ping.seqnum = (short) local_server_id;
+	ping.seqnum = local_server_id;
 	struct timeval tv;
-	tv.tv_sec = 1;
+	tv.tv_sec = 5;
 	tv.tv_usec = 0;
 	if (setsockopt(ping_socket, SOL_SOCKET, SO_RCVTIMEO,&tv,sizeof(tv)) < 0) {
 		perror("Error");
 	}
-	sendto(ping_socket, (char *) &ping, PACKETSIZE, 0, (struct sockaddr *)&election_s1, primary_len);
-	if(0 < recvfrom(ping_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *) &from, (socklen_t *) &from_len) || local_server_id == 1){
-		if(reply.opcode = ACK && reply.seqnum == 1){
-			primary_server_id = 1;
-			primary_server = server_1;
-			primary_len = sizeof(server_1);
-			printf("Case 1 \n\n");
+	printf("Starting election process\n\n");
+	i = 1;
+	while(i < 4 && not_done == 1){
+		printf("Iteration: %d\n\n",i);
+		if (local_server_id == i){
+			primary_server_id = i;
+			primary_server = server_list[i];
+			primary_len = sizeof(server_list[i]);
+			printf("Chose %d as the new lead server\n\n",i);
+			not_done = 0;
 		}
-	}
-	sendto(ping_socket, (char *) &ping, PACKETSIZE, 0, (struct sockaddr *)&election_s2, primary_len);
-	if(0 < recvfrom(ping_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *) &from, (socklen_t *) &from_len) || local_server_id == 2){
-		if(reply.opcode = ACK && reply.seqnum == 2){
-			primary_server_id = 2;
-			primary_server = server_2;
-			primary_len = sizeof(server_2);
+		else{
+			election_s = server_list[i];
+			election_s.sin_port = htons(3000);
+			n = sendto(ping_socket, (char *) &ping, PACKETSIZE, 0, (struct sockaddr *)&election_s, sizeof(election_s));
+			while (n < 0){
+				printf("Pinging\n\n");
+				n = sendto(ping_socket, (char *) &ping, PACKETSIZE, 0, (struct sockaddr *)&election_s, sizeof(election_s));
+			}
+			n = recvfrom(ping_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *) &from, (socklen_t *) &from_len);
+			if(0 < n){
+				primary_server_id = i;
+				primary_server = server_list[i];
+				primary_len = sizeof(server_list[i]);
+				printf("Chose %d as the new lead server\n\n",i);
+				not_done = 0;
+			}
 		}
+		i++;
 	}
-	sendto(ping_socket, (char *) &ping, PACKETSIZE, 0, (struct sockaddr *)&election_s3, primary_len);
-	if(0 < recvfrom(ping_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *) &from, (socklen_t *) &from_len) || local_server_id == 3){
-		if(reply.opcode = ACK && reply.seqnum == 3){
-			primary_server_id = 3;
-			primary_server = server_3;
-			primary_len = sizeof(server_3);
-		}
-	}
-	printf("New primary server is %d, local server id is %d\n\n", primary_server_id, local_server_id);
-	elected = 1;
+	printf("Got here\n\n");
+	sleep(1);
+	not_electing = 1;
 	if(local_server_id == primary_server_id){
 		inform_frontend_clients = session_count;
 	}
+	printf("Done here\n\n");
+	pthread_exit(0);
 }
+//
 
 void *replica_manager(){
-	pthread_t tide, tida;
+	pthread_t thread_elect, thread_answer;
 	SOCKET rm_socket;
 	struct sockaddr_in primary_rm, this_rm, from;
 	struct packet ping, reply;
 	int i, j, rm_port = 5000, this_len, from_len, online = 1;
 	struct timeval tv;
-	tv.tv_sec = 1;
+	tv.tv_sec = 5;
 	tv.tv_usec = 0;
-	ping.opcode = PING;
-	ping.seqnum = (short) local_server_id;
-	int n;
-
-	// Set up socket
+	int n, first_ping = 1;
+	not_electing = 1;
 	if((rm_socket = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
 		exit(1);
 	}
@@ -447,211 +491,68 @@ void *replica_manager(){
 	if (bind(rm_socket,(struct sockaddr *) &this_rm, this_len)) {
 		exit(1);
 	}
-	//
 	printf("Primary is %d\n\n", primary_server_id);
+	reply.opcode = ACK;
+	reply.seqnum = local_server_id;
+	ping.opcode = PING;
+	ping.seqnum = local_server_id;
 	while(online){
-		if(primary_server_id == local_server_id){
-			// Primary server case, turn off Timeout
-			tv.tv_sec = 6000;
+		if (primary_server_id != local_server_id){
+			tv.tv_sec = 5;
+			if (setsockopt(rm_socket, SOL_SOCKET, SO_RCVTIMEO,&tv,sizeof(tv)) < 0) {
+				perror("Error");
+			}
+			n = sendto(rm_socket, (char *) &ping, PACKETSIZE, 0, (struct sockaddr *) &primary_server, primary_len);
+			while(n < 0){
+				n = sendto(rm_socket, (char *) &ping, PACKETSIZE, 0, (struct sockaddr *) &primary_server, primary_len);
+			}
+			printf("Sent opcode %hi, pkt #%hi\n\n", ping.opcode, ping.seqnum);
+			n = recvfrom(rm_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *) &from, (socklen_t *) &from_len);
+			if (n < 0 || ping.seqnum < reply.seqnum){
+				printf("Ping timeout\n\n");
+				not_electing = 0;
+				pthread_create(&thread_elect, NULL, election_ping, NULL);
+				pthread_create(&thread_answer, NULL, election_answer, NULL);
+				pthread_join(thread_elect,(void *) &n);
+			}
+			printf("Received opcode %hi, pkt #%hi\n\n", reply.opcode, reply.seqnum);
+		}
+		else{
+			tv.tv_sec = 600;
 			if (setsockopt(rm_socket, SOL_SOCKET, SO_RCVTIMEO,&tv,sizeof(tv)) < 0) {
 				perror("Error");
 			}
 			n = recvfrom(rm_socket, (char *) &ping, PACKETSIZE, 0, (struct sockaddr *) &from, (socklen_t *) &from_len);
-			// If pinged by higher priority server, start election
-			printf("Got pinged by %d and n is %d\n\n",ping.seqnum, n);
-			if(ping.seqnum < ((short) local_server_id)){
-				pthread_create(&tide, NULL, election_answer, NULL);
-				pthread_create(&tide, NULL, election_ping, NULL);
-				printf("1 - Elected Primary is %d\n\n", primary_server_id);
+			printf("Received opcode %hi, pkt #%hi\n\n", ping.opcode, ping.seqnum);
+			n = sendto(rm_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *) &(server_list[ping.seqnum]), from_len);
+			while(n < 0){
+				n = sendto(rm_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *) &(server_list[ping.seqnum]), from_len);
 			}
-			// Else respond
-			reply.opcode = ACK;
-			ping.seqnum = (short) local_server_id;
-			sendto(rm_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *)&from, from_len);
-		}
-		else{
-			// Secondary server case, set up Timeout
-			tv.tv_sec = 6;
-			if (setsockopt(rm_socket, SOL_SOCKET, SO_RCVTIMEO,&tv,sizeof(tv)) < 0) {
-				perror("Error");
+			if(ping.seqnum < local_server_id){
+				not_electing = 0;
+				pthread_create(&thread_elect, NULL, election_ping, NULL);
+				pthread_create(&thread_answer, NULL, election_answer, NULL);
+				pthread_join(thread_elect,(void *) &n);
 			}
-			ping.opcode = PING;
-			ping.seqnum = (short) local_server_id;
-			// Send pings
-			sendto(rm_socket, (char *) &ping, PACKETSIZE, 0, (struct sockaddr *)&primary_server, primary_len);
-			// If hasn't received heartbeat response or if the responding manager has lower priority, start Election
-			n = recvfrom(rm_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *) &from, (socklen_t *) &from_len);
-			if(n < 0){
-				printf("n is %d\n\n",n);
-				pthread_create(&tide, NULL, election_answer, NULL);
-				pthread_create(&tide, NULL, election_ping, NULL);
-				printf("2 - Elected Primary is %d\n\n", primary_server_id);
-			}
-			else if(reply.seqnum < ((short) local_server_id)){
-				pthread_create(&tide, NULL, election_answer, NULL);
-				pthread_create(&tide, NULL, election_ping, NULL);
-				printf("3 - Elected Primary is %d\n\n", primary_server_id);
-			}
-		}
-
-		if(local_server_id == primary_server_id){
-			inform_frontend_clients = 1;
+			printf("Sent opcode %hi, pkt #%hi\n\n", reply.opcode, reply.seqnum);
 		}
 	}
 }
 
-/*
-void elect_primary(){
-	int i = 0;
-	while(i < MAXSERVERS && serverlist.active[i] == 0){
-		i++;
-	}
-	if (i < MAXSERVERS){
-		primary_id = i;
-	}
-	if (primary_id == server_id || i >= MAXSERVERS){
-		is_primary = TRUE;
-		primary_id = server_id;
-	}
-}
-
-int update_server_list(struct packet reply){
-	char *data;
-	int i;
-	memcpy((void *) &serverlist,reply.data,sizeof(data));
-	for(i = 0; i < MAXSERVERS; i++){
-		printf("Server #%d is %d\n\n",i, serverlist.active[i]);
-	}
-}
-
-int insert_in_server_list(struct sockaddr_in new_server){
-	int i = 0;
-	while(i < MAXSERVERS && serverlist.active[i] != 0){
-		i++;
-	}
-	if (i < MAXSERVERS){
-		serverlist.active[i] = 1;
-		serverlist.addr[i] = new_server;
-		return i;
-	}
-	return -1;
-}
-
-void *replica_manager(){
-	SOCKET rm_socket;
-	struct sockaddr_in primary_rm, this_rm, from;
-	struct packet ping, ping_reply;
-	int i, j, rm_port, this_len, from_len, primary_len = sizeof(struct sockaddr_in), online = 1;
-	struct hostent *primary_host;
-	struct timeval tv;
-	tv.tv_sec = 0;
-	tv.tv_usec = 500000;
-	ping.opcode = PING;
-	ping.seqnum = NONE;
-	// Socket setup
-	server_id = -1;
-	rm_port = 5000; // Set port!
-	if((rm_socket = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
-		exit(1);
-	}
-	memset((void *) &this_rm,0,sizeof(struct sockaddr_in));
-	this_rm.sin_family = AF_INET;
-	this_rm.sin_addr.s_addr = htonl(INADDR_ANY);
-	this_rm.sin_port = htons(rm_port);
-	this_len = sizeof(this_rm);
-	if (bind(rm_socket,(struct sockaddr *) &this_rm, this_len)) {
-		exit(1);
-	}
-	if (strcmp(host,"127.0.0.1") == 0){
-		is_primary = TRUE;
-		ping.seqnum = 0;
-		server_id = insert_in_server_list(this_rm);
-	}
-	else{
-		printf("Host is %s\n\n",host);
-		primary_host = gethostbyname(host);
-		primary_rm.sin_family = AF_INET;
-		primary_rm.sin_port = htons(5000);
-		primary_rm.sin_addr = *((struct in_addr *)primary_host->h_addr);
-		bzero(&(primary_rm.sin_zero), 8);
-	}
-
-	while(online){
-		printf("Primary is %d\n\n", primary_id);
-		// Check if you're the rm_primary
-		if (is_primary){
-			tv.tv_sec = 25;
-			tv.tv_usec = 0;
-			if (setsockopt(rm_socket, SOL_SOCKET, SO_RCVTIMEO,&tv,sizeof(tv)) < 0) {
-				perror("Error");
-			}
-			recvfrom(rm_socket, (char *) &ping, PACKETSIZE, 0, (struct sockaddr *) &from, (socklen_t *) &from_len);
-			if (ping.opcode == PING){
-				if(ping.seqnum == NONE){
-					ping_reply.seqnum = insert_in_server_list(from);
-				}
-				ping_reply.opcode = ACK;
-				strncpy(ping_reply.data, (char *) &serverlist, sizeof(struct serverlist));
-				sendto(rm_socket, (char *) &ping_reply, PACKETSIZE, 0, (struct sockaddr *)&from, primary_len);
-			}
-		}
-		else{
-			// Send ping
-			sendto(rm_socket, (char *) &ping, PACKETSIZE, 0, (struct sockaddr *)&primary_rm, primary_len);
-			tv.tv_sec = 2;
-			tv.tv_usec = 0;
-			if (setsockopt(rm_socket, SOL_SOCKET, SO_RCVTIMEO,&tv,sizeof(tv)) < 0) {
-				perror("Error");
-			}
-			if (0 > recvfrom(rm_socket, (char *) &ping_reply, PACKETSIZE, 0, (struct sockaddr *) &from, (socklen_t *) &from_len)){
-				//Timeout!
-				serverlist.active[primary_id] = 0;
-				elect_primary();
-				primary_rm = serverlist.addr[primary_id];
-			}
-			else if(ping.seqnum == NONE){
-				ping.seqnum = ping_reply.seqnum;
-				server_id = (int) ping.seqnum;
-			}
-			update_server_list(ping_reply);
-		}
-	}
-	return 0;
-}
-
-void *setrep(){
-	struct sockaddr_in rep;
-	int rep_len;
-	if((rep_socket = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
-		printf("ERROR: Socket creation failure.\n");
-		exit(1);
-	}
-	memset((void *) &rep,0,sizeof(struct sockaddr_in));
-	rep.sin_family = AF_INET;
-	rep.sin_addr.s_addr = htonl(INADDR_ANY);
-	rep.sin_port = htons(4000);
-	rep_len = sizeof(rep);
-	if (bind(rep_socket,(struct sockaddr *) &rep, rep_len)) {
-		printf("Rep Binding error\n");
-		exit(1);
-	}
-	printf("Rep socket initialized.\n\n");
-	pthread_exit(0);
-}
-*/
+//============================================================================
 
 int main(int argc,char *argv[]){
 	//char host[20];
 	char strid[100];
 	SOCKET main_socket;
 	struct sockaddr client;
-	struct sockaddr_in server;
+	struct sockaddr_in server, aux_server;
 	struct packet login_request, login_reply;
 	int i, j, session_port, server_len, client_len = sizeof(struct sockaddr_in), online = 1;
 	pthread_t tid1, tid2;
 	session_count = 0;
 	// num_primario indicates which server is primary: 1 -> a, 2 -> b, 3 -> this one
-	if (argc!=5){
+	if (argc!=6){
 		printf("Escreva no formato: ./dropboxServer <endereço_do_server_1> <endereço_do_server_2> <endereço_do_server_3> <id_do_server_local>\n\n");
 		return 0;
 	}
@@ -660,28 +561,31 @@ int main(int argc,char *argv[]){
 	strcpy(ip_server_3,argv[3]);
 	strcpy(strid,argv[4]);
 	local_server_id = atoi(strid);
+	strcpy(strid,argv[5]);
+	primary_server_id = atoi(strid);
 	inform_frontend_clients = 0;
 
-	primary_server_id = 1;
 	host_server_1 = gethostbyname(ip_server_1);
-	server_1.sin_family = AF_INET;
-	server_1.sin_port = htons(5000);
-	server_1.sin_addr = *((struct in_addr *)host_server_1->h_addr);
-	bzero(&(server_1.sin_zero), 8);
-	primary_server = server_1;
-	primary_len = sizeof(server_1);
+	server_list[1].sin_family = AF_INET;
+	server_list[1].sin_port = htons(5000);
+	server_list[1].sin_addr = *((struct in_addr *)host_server_1->h_addr);
+	bzero(&(server_list[1].sin_zero), 8);
 	//
 	host_server_2 = gethostbyname(ip_server_2);
-	server_2.sin_family = AF_INET;
-	server_2.sin_port = htons(5000);
-	server_2.sin_addr = *((struct in_addr *)host_server_2->h_addr);
-	bzero(&(server_2.sin_zero), 8);
+	server_list[2].sin_family = AF_INET;
+	server_list[2].sin_port = htons(5000);
+	server_list[2].sin_addr = *((struct in_addr *)host_server_2->h_addr);
+	bzero(&(server_list[2].sin_zero), 8);
 	//
 	host_server_3 = gethostbyname(ip_server_3);
-	server_3.sin_family = AF_INET;
-	server_3.sin_port = htons(5000);
-	server_3.sin_addr = *((struct in_addr *)host_server_3->h_addr);
-	bzero(&(server_3.sin_zero), 8);
+	server_list[3].sin_family = AF_INET;
+	server_list[3].sin_port = htons(5000);
+	server_list[3].sin_addr = *((struct in_addr *)host_server_3->h_addr);
+	bzero(&(server_list[3].sin_zero), 8);
+	//
+	primary_server = server_list[primary_server_id];
+	primary_len = sizeof(server_list[primary_server_id]);
+
 
 	for (i = 0; i < MAXCLIENTS; i++){
 		for(j = 0; j < MAXSESSIONS; j++){
@@ -715,20 +619,30 @@ int main(int argc,char *argv[]){
 			printf("ERROR: Package reception error.\n\n");
 		}
 		else{
-			session_port = login(login_request);
-			//printf("\nopcode is %hi\n\n",login_request.opcode);
-			//printf("\ndata is %s\n\n",login_request.data);
-			if (session_port > 0){
-				session_count++;
-				login_reply.opcode = ACK;
-				login_reply.seqnum = (short) session_port;
-				sendto(main_socket, (char *) &login_reply, PACKETSIZE, 0, (struct sockaddr *)&client, client_len);
-				printf("Login succesful...\n\n");
-			}
-			else{
-				login_reply.opcode = NACK;
-				sendto(main_socket, (char *) &login_reply, PACKETSIZE, 0, (struct sockaddr *)&client, client_len);
-				printf("ERROR: Login unsuccesful...\n\n");
+			if(login_request.opcode == LOGIN){
+				session_port = login(login_request);
+				//printf("\nopcode is %hi\n\n",login_request.opcode);
+				//printf("\ndata is %s\n\n",login_request.data);
+				if (session_port > 0){
+					session_count++;
+					login_reply.opcode = ACK;
+					login_reply.seqnum = (short) session_port;
+					sendto(main_socket, (char *) &login_reply, PACKETSIZE, 0, (struct sockaddr *)&client, client_len);
+					// Send to all other servers
+					for(i = 1; i < 4; i++){
+						if(i != local_server_id  && local_server_id == primary_server_id){
+							aux_server = server_list[i];
+							aux_server.sin_port = htons(6000);
+							sendto(main_socket, (char *) &login_request, PACKETSIZE, 0, (struct sockaddr *)&aux_server, sizeof(struct sockaddr));
+						}
+					}
+					printf("Login succesful...\n\n");
+				}
+				else{
+					login_reply.opcode = NACK;
+					sendto(main_socket, (char *) &login_reply, PACKETSIZE, 0, (struct sockaddr *)&client, client_len);
+					printf("ERROR: Login unsuccesful...\n\n");
+				}
 			}
 			//
 		}
