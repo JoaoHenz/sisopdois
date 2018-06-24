@@ -609,7 +609,7 @@ int main(int argc,char *argv[]){
 
 						while(!recebeuack){
 							fprintf( stderr, "\nBBBBBBBBB\n");
-							sendto(main_socket, (char *)&login_request, PACKETSIZE, 0, (const struct sockaddr *) &server_list[servo_id], sizeof(struct sockaddr_in));
+							sendto(main_socket, (char *)&login_request, PACKETSIZE, 0, (const struct sockaddr *) &servo_logaddr, sizeof(struct sockaddr_in));
 							recvfrom(main_socket, (char *)&reply, PACKETSIZE, 0, (struct sockaddr *) &servo_logaddr, &length);
 							if (reply.opcode == ACK){
 								recebeuack = TRUE;
