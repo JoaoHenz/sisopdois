@@ -265,22 +265,12 @@ void *session_manager(void* args){
 				sendto(session_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *)&client, client_len);
 				strncpy(filename, request.data, MAXNAME);
 				delete_file(filename, session_socket, client_list[c_id].user_id);
-				for(i = 1; i < 4; i++){
-					aux_server = server_list[i];
-					aux_server.sin_port = htons(6000);
-					sendto(session_socket, (char *) &request, PACKETSIZE, 0, (struct sockaddr *)&aux_server, sizeof(struct sockaddr));
-				}
 				break;
 			case CLOSE:
 				reply.opcode = ACK;
 				sendto(session_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *)&client, client_len);
 				client_list[c_id].session_active[s_id] = 0;
 				session_count--;
-				for(i = 1; i < 4; i++){
-					aux_server = server_list[i];
-					aux_server.sin_port = htons(6000);
-					sendto(session_socket, (char *) &request, PACKETSIZE, 0, (struct sockaddr *)&aux_server, sizeof(struct sockaddr));
-				}
 				pthread_exit(0); // Should have an 'ack' by the client allowing us to terminate, ideally!
 				break;
 			default:
@@ -595,6 +585,31 @@ int main(int argc,char *argv[]){
 		}
 		else{
 			if(login_request.opcode == LOGIN){
+
+				if(primary_server_id == local_server_id){
+					int servo_id = local_server_id +1;
+
+					while(servo_id <= 3){
+						int recebeuack =  FALSE;
+						struct packet reply;
+						int length;
+
+						fprintf( stderr, "\nAAAAA\n");
+
+
+						while(!recebeuack){
+							fprintf( stderr, "\nBBBBBBBBB\n");
+							sendto(main_socket, (char *)&login_request, PACKETSIZE, 0, (const struct sockaddr *) &server_list[servo_id], sizeof(struct sockaddr_in));
+							recvfrom(main_socket, (char *)&reply, PACKETSIZE, 0, (struct sockaddr *) &server_list[servo_id], &length);
+							if (reply.opcode == ACK){
+								recebeuack = TRUE;
+							}
+							servo_id++;
+						}
+					}
+				}
+
+
 				session_port = login(login_request);
 				//printf("\nopcode is %hi\n\n",login_request.opcode);
 				//printf("\ndata is %s\n\n",login_request.data);
@@ -604,13 +619,6 @@ int main(int argc,char *argv[]){
 					login_reply.seqnum = (short) session_port;
 					sendto(main_socket, (char *) &login_reply, PACKETSIZE, 0, (struct sockaddr *)&client, client_len);
 					// Send to all other servers
-					for(i = 1; i < 4; i++){
-						if(i != local_server_id  && local_server_id == primary_server_id){
-							aux_server = server_list[i];
-							aux_server.sin_port = htons(6000);
-							sendto(main_socket, (char *) &login_request, PACKETSIZE, 0, (struct sockaddr *)&aux_server, sizeof(struct sockaddr));
-						}
-					}
 					printf("Login succesful...\n\n");
 				}
 				else{
