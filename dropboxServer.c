@@ -603,11 +603,14 @@ int main(int argc,char *argv[]){
 
 						fprintf( stderr, "\nAAAAA\n");
 
+						struct sockaddr_in servo_logaddr = server_list[servo_id];
+						servo_logaddr.sin_port = htons(6000);
+
 
 						while(!recebeuack){
 							fprintf( stderr, "\nBBBBBBBBB\n");
 							sendto(main_socket, (char *)&login_request, PACKETSIZE, 0, (const struct sockaddr *) &server_list[servo_id], sizeof(struct sockaddr_in));
-							recvfrom(main_socket, (char *)&reply, PACKETSIZE, 0, (struct sockaddr *) &server_list[servo_id], &length);
+							recvfrom(main_socket, (char *)&reply, PACKETSIZE, 0, (struct sockaddr *) &servo_logaddr, &length);
 							if (reply.opcode == ACK){
 								recebeuack = TRUE;
 							}
