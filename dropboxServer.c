@@ -55,6 +55,7 @@ struct pair {
 };
 struct client client_list [MAXCLIENTS];
 
+SOCKET main_socket;
 int primary_server_id, local_server_id, primary_len, inform_frontend_clients;
 char ip_server_1[20];
 char ip_server_2[20];
@@ -267,6 +268,35 @@ void *session_manager(void* args){
 				delete_file(filename, session_socket, client_list[c_id].user_id);
 				break;
 			case CLOSE:
+
+			if(primary_server_id == local_server_id){
+				int servo_id = local_server_id +1;
+
+				while(servo_id <= 3){
+					int recebeuack =  FALSE;
+					struct packet replyServo;
+					int length;
+
+
+					struct sockaddr_in servo_logaddr = server_list[servo_id];
+					servo_logaddr.sin_port = htons(6000);
+
+
+					while(!recebeuack){
+						sendto(main_socket, (char *)&request, PACKETSIZE, 0, (const struct sockaddr *) &servo_logaddr, sizeof(struct sockaddr_in));
+						recvfrom(main_socket, (char *)&replyServo, PACKETSIZE, 0, (struct sockaddr *) &servo_logaddr, &length);
+						if (reply.opcode == ACK){
+							recebeuack = TRUE;
+						}
+						servo_id++;
+					}
+				}
+			}
+
+
+
+
+
 				reply.opcode = ACK;
 				sendto(session_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *)&client, client_len);
 				client_list[c_id].session_active[s_id] = 0;
@@ -516,7 +546,6 @@ void *replica_manager(){
 int main(int argc,char *argv[]){
 	//char host[20];
 	char strid[100];
-	SOCKET main_socket;
 	struct sockaddr client;
 	struct sockaddr_in server, aux_server;
 	struct packet login_request, login_reply;
@@ -601,14 +630,12 @@ int main(int argc,char *argv[]){
 						struct packet reply;
 						int length;
 
-						fprintf( stderr, "\nAAAAA\n");
 
 						struct sockaddr_in servo_logaddr = server_list[servo_id];
 						servo_logaddr.sin_port = htons(6000);
 
 
 						while(!recebeuack){
-							fprintf( stderr, "\nBBBBBBBBB\n");
 							sendto(main_socket, (char *)&login_request, PACKETSIZE, 0, (const struct sockaddr *) &servo_logaddr, sizeof(struct sockaddr_in));
 							recvfrom(main_socket, (char *)&reply, PACKETSIZE, 0, (struct sockaddr *) &servo_logaddr, &length);
 							if (reply.opcode == ACK){
