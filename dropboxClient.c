@@ -22,12 +22,23 @@
 #define EVENT_SIZE  ( sizeof (struct inotify_event) )
 #define BUF_LEN     ( 1024 * ( EVENT_SIZE + 16 ) )
 #define PING 10
+#define FILENAMESIZE 50
+#define MAXARQINDIR 30
 
 struct packet {
 	short int opcode;
 	short int seqnum;
 	char data [PACKETSIZE - 4];
 };
+struct sync_data {
+	char client_new[FILENAMESIZE][MAXARQINDIR];
+	char server_new[FILENAMESIZE][MAXARQINDIR];
+
+	char client_old[FILENAMESIZE][MAXARQINDIR];
+	char server_old[FILENAMESIZE][MAXARQINDIR];
+};
+
+
 int is_syncing = FALSE;
 int mustexit = FALSE;
 char userID[20];
@@ -37,8 +48,24 @@ int socket_local;
 struct sockaddr_in serv_addr;
 struct hostent *server;
 double time_between_sync = 10.f;
+int primeiro_sync = TRUE;
+struct sync_data syncdataglobal;
 
 pthread_mutex_t lockcomunicacao;
+int encontrou(char name[FILENAMESIZE],char name_list[FILENAMESIZE][MAXARQINDIR]){
+	int i =0;
+	int encontrou = FALSE;
+
+
+	while(encontrou ==FALSE && strcmp(name_list[i],"FIMDALISTA")!=0){
+		if (strcmp(name_list[i],name)==0)
+			encontrou =TRUE;
+		i++;
+	}
+	return encontrou;
+
+}
+
 char* list_server();
 
 void pickFileNameFromPath(char *path,char *filename){
@@ -70,7 +97,7 @@ char* devolvePathSyncDir(){
 }
 
 char* devolvePathSyncDirBruto(){
-	char * pathsyncdir;
+	char* pathsyncdir;
 	pathsyncdir = (char*) malloc(sizeof(char)*100);
 	strcpy(pathsyncdir,"~/");
 	strcat(pathsyncdir,"sync_dir_");
@@ -115,6 +142,7 @@ char* findnext(char* list_server,int contador, int * contstr){
 void setsynctime(int newsynctime){
 	time_between_sync = newsynctime;
 }
+
 //=======================================================
 int login_server(char *host,int port){
 	int n;
@@ -252,11 +280,12 @@ void delete_file(char *filename){
 	strcat(path,"/");
 	strcat(path,filename);
 
+	/*
 	fp = fopen (path,"r");
   if (fp == NULL) {
       printf ("Arquivo não existe\n");
   }
-	else{
+	*/
 		message.opcode = DELETE;
 		message.seqnum = 0;
 		strcpy(message.data,filename);
@@ -268,7 +297,8 @@ void delete_file(char *filename){
 				recebeuack = TRUE;
 			}
 		}
-	}
+	
+	/*
 	ret = remove(path);
 
 	if(ret == 0) {
@@ -276,7 +306,58 @@ void delete_file(char *filename){
 	} else {
 		 printf("Algo deu errado...\n");
 	}
+	*/
 	pthread_mutex_unlock(&lockcomunicacao);
+}
+
+void executaSync(struct sync_data syncdata){
+	int i;
+	char* path;
+	int ret=0;
+
+	//printf("\nO que de novo deve ser enviado para o server:\n");
+	i=0;
+	while(strcmp(syncdata.client_new[i],"FIMDALISTA")!=0){
+		if (!encontrou(syncdata.client_new[i],syncdata.client_old)){
+			path = devolvePathSyncDirBruto();
+			strcat(path,syncdata.client_new[i]);
+			send_file(path);
+			//printf(" - %s\n",path);
+		}
+		i++;
+	}
+	//printf("\nO que deve ser deletado do server:\n");
+	i=0;
+	while(strcmp(syncdata.client_old[i],"FIMDALISTA")!=0){
+		if (!encontrou(syncdata.client_old[i],syncdata.client_new)){
+			delete_file(syncdata.client_old[i]);
+			//printf(" - %s\n",syncdata.client_old[i]);
+		}
+		i++;
+	}
+	//printf("\nO que deve ser baixado de novo do server:\n");
+	i=0;
+	while(strcmp(syncdata.server_new[i],"FIMDALISTA")!=0){
+		if (!encontrou(syncdata.server_new[i],syncdata.server_old)){
+			get_file(syncdata.server_new[i],devolvePathSyncDirBruto());
+			//printf(" - %s\n",syncdata.server_new[i]);
+		}
+		i++;
+	}
+	//printf("\nO que deve ser deletado no cliente:\n");
+	i=0;
+	while(strcmp(syncdata.server_old[i],"FIMDALISTA")!=0){
+		if (!encontrou(syncdata.server_old[i],syncdata.server_new)){
+			path = devolvePathSyncDir();
+			strcat(path,syncdata.server_old[i]);
+			ret = remove(path);
+			//printf(" - %s\n",path);
+		}
+		i++;
+	}
+	i=0;
+
+
 }
 
 void sync_client(){
@@ -290,33 +371,83 @@ void sync_client(){
 	int contador;
 	char * nomearqremoto;
 	int contstr[1];
+	int j;
 
 	contstr[0] = 0;
 	i = 0;
 	contador= 0;
 
-	path = devolvePathSyncDir();
-	DIR* dir = opendir(path);
-	struct dirent * file;
-	while((file = readdir(dir)) != NULL){
-		if(file->d_type==DT_REG){
-			sendpath = devolvePathSyncDirBruto();
-			strcat(sendpath, file->d_name);
-			//printf("esta mandando para o sync: %s\n",sendpath);
-			send_file(sendpath);
+	if (primeiro_sync){
+		//Verifica o que há no cliente
+		j=0;
+		path = devolvePathSyncDir();
+		DIR* dir = opendir(path);
+		struct dirent * file;
+		while((file = readdir(dir)) != NULL){
+			if(file->d_type==DT_REG){
+				strcpy(syncdataglobal.client_new[j], file->d_name);
+				j++;
+			}
 		}
-	}
+		strcpy(syncdataglobal.client_new[j], "FIMDALISTA");
 
-	list_serverstr = list_server();
-
-	nomearqremoto = findnext(list_serverstr,contador,contstr);
-	contador++;
-	while(nomearqremoto[0]!='\0' && nomearqremoto[0]!='\n'){
-		get_file(nomearqremoto,devolvePathSyncDirBruto());
+		//Verifica o que há no server
+		j=0;
+		list_serverstr = list_server();
 		nomearqremoto = findnext(list_serverstr,contador,contstr);
 		contador++;
-	}
+		while(nomearqremoto[0]!='\0' && nomearqremoto[0]!='\n'){
+			strcpy(syncdataglobal.server_new[j], nomearqremoto);
+			nomearqremoto = findnext(list_serverstr,contador,contstr);
+			contador++;
+			j++;
+		}
+		strcpy(syncdataglobal.server_new[j], "FIMDALISTA");
 
+		memcpy(syncdataglobal.client_old,syncdataglobal.client_new,FILENAMESIZE*MAXARQINDIR);
+		memcpy(syncdataglobal.server_old,syncdataglobal.server_new,FILENAMESIZE*MAXARQINDIR);
+
+
+
+		//printf("Chamando executa sync \n");
+		//executaSync(syncdataglobal);
+
+		primeiro_sync = FALSE;
+
+
+	}
+	else{
+		//Verifica o que há no cliente
+		j=0;
+		path = devolvePathSyncDir();
+		DIR* dir = opendir(path);
+		struct dirent * file;
+		while((file = readdir(dir)) != NULL){
+			if(file->d_type==DT_REG){
+				strcpy(syncdataglobal.client_new[j], file->d_name);
+				j++;
+			}
+		}
+		strcpy(syncdataglobal.client_new[j], "FIMDALISTA");
+		//Verifica o que há no server
+		j=0;
+		list_serverstr = list_server();
+		nomearqremoto = findnext(list_serverstr,contador,contstr);
+		contador++;
+		while(nomearqremoto[0]!='\0' && nomearqremoto[0]!='\n'){
+			strcpy(syncdataglobal.server_new[j], nomearqremoto);
+			nomearqremoto = findnext(list_serverstr,contador,contstr);
+			contador++;
+			j++;
+		}
+		strcpy(syncdataglobal.server_new[j], "FIMDALISTA");
+
+		//printf("Chamando executa sync errado\n");
+		executaSync(syncdataglobal);
+
+		memcpy(syncdataglobal.client_old,syncdataglobal.client_new,FILENAMESIZE*MAXARQINDIR);
+		memcpy(syncdataglobal.server_old,syncdataglobal.server_new,FILENAMESIZE*MAXARQINDIR);
+	}
 }
 
 void close_session(){
@@ -458,17 +589,11 @@ void treat_command(char command[100]){
 }
 
 void* thread_sync(void *vargp){
-		int must_sync = FALSE;
+
 		is_syncing = TRUE;
-
-		must_sync = TRUE;
-
-		if (must_sync){
-			sync_client();
-		}
-
-
+		sync_client();
 		is_syncing = FALSE;
+
     pthread_exit((void *)NULL);
 }
 
@@ -516,7 +641,7 @@ int main(int argc,char *argv[]){
 
 	if (pthread_mutex_init(&lockcomunicacao, NULL) != 0)
 		{
-				printf("\n inicialiazação do mutex falhou\n");
+				printf("\n inicialização do mutex falhou\n");
 				return 1;
 		}
 
@@ -554,6 +679,8 @@ int main(int argc,char *argv[]){
 			last_time=  (double) clock() / CLOCKS_PER_SEC;
 			actual_time = (double) clock() / CLOCKS_PER_SEC;
 			pthread_create(&(tid[0]), NULL, thread_interface,NULL);
+
+			sync_client();
 
 			while(!mustexit){ //exits here when the user digits 'quit' at the interface thread
 				actual_time = (double) clock() / CLOCKS_PER_SEC;
