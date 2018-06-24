@@ -279,23 +279,20 @@ void *session_manager(void* args){
 
 
 					struct sockaddr_in servo_logaddr = server_list[servo_id];
-					servo_logaddr.sin_port = htons(6000);
+					servo_logaddr.sin_port = htons(session_port);
 
+					fprintf(stderr,"AAAAA");
 
 					while(!recebeuack){
-						sendto(main_socket, (char *)&request, PACKETSIZE, 0, (const struct sockaddr *) &servo_logaddr, sizeof(struct sockaddr_in));
-						recvfrom(main_socket, (char *)&replyServo, PACKETSIZE, 0, (struct sockaddr *) &servo_logaddr, &length);
+						sendto(session_socket, (char *)&request, PACKETSIZE, 0, (const struct sockaddr *) &servo_logaddr, sizeof(struct sockaddr_in));
+						recvfrom(session_socket, (char *)&replyServo, PACKETSIZE, 0, (struct sockaddr *) &servo_logaddr, &length);
 						if (reply.opcode == ACK){
 							recebeuack = TRUE;
 						}
-						servo_id++;
 					}
+					servo_id++;
 				}
 			}
-
-
-
-
 
 				reply.opcode = ACK;
 				sendto(session_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *)&client, client_len);
@@ -641,8 +638,8 @@ int main(int argc,char *argv[]){
 							if (reply.opcode == ACK){
 								recebeuack = TRUE;
 							}
-							servo_id++;
 						}
+						servo_id++;
 					}
 				}
 
