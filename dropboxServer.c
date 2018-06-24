@@ -29,17 +29,14 @@
 #define LOGIN 7
 #define FILEPKT 8
 #define LASTPKT 9
-// Part II
 #define PING 10
 
-// Structures
 struct file_info {
 	char name[MAXNAME];
 	char extension[MAXNAME];
 	char last_modified[MAXNAME];
 	int size;
 };
-
 struct client {
 	char user_id [MAXNAME];
 	int session_active [MAXSESSIONS];
@@ -47,22 +44,17 @@ struct client {
 	int socket_set[MAXSESSIONS];
 	SOCKET socket[MAXSESSIONS];
 };
-
 struct packet {
 	short int opcode;
 	short int seqnum;
 	char data [PACKETSIZE - 4];
 };
-
 struct pair {
 	int c_id;
 	int s_id;
 };
-
-// Global Variables
 struct client client_list [MAXCLIENTS];
 
-// Global Variables Part II
 int primary_server_id, local_server_id, primary_len, inform_frontend_clients;
 char ip_server_1[20];
 char ip_server_2[20];
@@ -76,19 +68,6 @@ struct sockaddr_in primary_server;
 int not_electing;
 int session_count;
 int election_setup = 0, answer_setup = 0;
-// Subroutines
-/*
-void replication(struct packet message){
-	int i;
-	struct sockaddr_in destination;
-	for(i = 0; i < MAXSERVERS; i++){
-		if(i != server_id){
-			destination = serverlist.addr[i];
-			sendto(rep_socket, (char *) &message, PACKETSIZE, 0, (struct sockaddr *)&destination, sizeof(struct sockaddr_in));
-		}
-	}
-}
-*/
 
 char * devolvePathHomeServer(char *userID){
 	char * pathsyncdir;
@@ -338,7 +317,6 @@ int login(struct packet login_request){
 	}
 	return -1;
 }
-
 // ========================================================================== //
 void* sync_server_manager(){
 	// Handle updating files to the non-primary servers
@@ -467,7 +445,6 @@ void* election_ping(){
 	printf("Done here\n\n");
 	pthread_exit(0);
 }
-//
 
 void *replica_manager(){
 	pthread_t thread_elect, thread_answer;
@@ -538,9 +515,7 @@ void *replica_manager(){
 		}
 	}
 }
-
 //============================================================================
-
 int main(int argc,char *argv[]){
 	//char host[20];
 	char strid[100];
