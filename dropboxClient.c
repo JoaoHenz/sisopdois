@@ -389,7 +389,6 @@ void firstExecutaSync(struct sync_data syncdata){
 
 }
 
-
 void first_sync_client(){
 	char * path;
 	char * sendpath;
