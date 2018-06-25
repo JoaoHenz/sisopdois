@@ -297,19 +297,20 @@ void *session_manager(void* args){
 		switch(request.opcode){
 			case UPLOAD:;
 				strncpy(filename, request.data, MAXNAME);
-				if(primary_server_id == local_server_id){
-					pthread_t tid;
-					struct upload_info upinfo;
-					upinfo.session_port = session_port;
-					strncpy(upinfo.filename, filename, MAXNAME);
-					strncpy(upinfo.userID, client_list[c_id].user_id, MAXNAME);
-					pthread_create(&tid, NULL, replica_upload, (void *) &upinfo);
-				}
 				reply.opcode = ACK;
 				sendto(session_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *)&client, client_len);
 				strncpy(filename, request.data, MAXNAME);
 				receive_file(filename, session_socket, client_list[c_id].user_id);
 					fprintf(stderr, "%s\n", "AAAAAAAAAAAAAAAAAAAAAAAAAAAA" );
+
+					if(primary_server_id == local_server_id){
+						pthread_t tid;
+						struct upload_info upinfo;
+						upinfo.session_port = session_port;
+						strncpy(upinfo.filename, filename, MAXNAME);
+						strncpy(upinfo.userID, client_list[c_id].user_id, MAXNAME);
+						pthread_create(&tid, NULL, replica_upload, (void *) &upinfo);
+					}
 				break;
 			case DOWNLOAD:
 				reply.opcode = ACK;
