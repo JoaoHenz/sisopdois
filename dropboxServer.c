@@ -53,6 +53,13 @@ struct pair {
 	int c_id;
 	int s_id;
 };
+
+struct upload_info {
+	char filename[MAXNAME];
+	int session_port;
+	char userID[MAXNAME];
+};
+
 struct client client_list [MAXCLIENTS];
 
 SOCKET main_socket;
@@ -184,6 +191,50 @@ int inform_frontend(struct sockaddr client, SOCKET session_socket){
 	ping.opcode = PING;
 	sendto(session_socket, (char *) &ping, PACKETSIZE, 0, (struct sockaddr *)&fe_client, fe_len);
 	return 0;
+}
+
+void *replica_upload(void *args){
+	//chama a função assim: pthread_create(&tid, NULL, replica_upload, (void *) &param_info);
+	SOCKET local_socket;
+	struct upload_info *info = args;
+	struct packet upload_request, reply;
+	struct sockaddr *destination;
+	char filename[MAXNAME];
+	char userID[MAXNAME];
+	int  servo_id = local_server_id +1, i, length, session_port = info->session_port;
+	strncpy(filename,info->filename,MAXNAME);
+	strncpy(userID,info->userID,MAXNAME);
+
+	if ((local_socket = socket(AF_INET, SOCK_DGRAM, 0)) == -1)
+		printf("ERROR opening socket");
+
+	//Set upload request
+	upload_request.opcode = UPLOAD;
+	upload_request.seqnum = 0;
+	strncpy(upload_request.data,filename,MAXNAME);
+
+	while(servo_id <= 3){
+		int recebeuack =  FALSE;
+		struct packet reply;
+		int length;
+
+
+		struct sockaddr_in servo_logaddr = server_list[servo_id];
+		servo_logaddr.sin_port = htons(session_port);
+
+
+		while(!recebeuack){
+			sendto(local_socket, (char *)&upload_request, PACKETSIZE, 0, (const struct sockaddr *) &servo_logaddr, sizeof(struct sockaddr_in));
+			recvfrom(local_socket, (char *)&reply, PACKETSIZE, 0, (struct sockaddr *) &servo_logaddr, &length);
+			if (reply.opcode == ACK){
+				recebeuack = TRUE;
+				destination = (struct sockaddr *) &servo_logaddr;
+				send_file(filename, local_socket, userID, *destination);
+			}
+		}
+		servo_id++;
+	}
+	pthread_exit(0);
 }
 
 void *session_manager(void* args){
