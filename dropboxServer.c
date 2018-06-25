@@ -296,13 +296,15 @@ void *session_manager(void* args){
 		printf("Client %d, Session %d Opcode is: %hi\n\n", c_id, s_id, request.opcode);
 		switch(request.opcode){
 			case UPLOAD:;
-				pthread_t tid;
-				struct upload_info upinfo;
 				strncpy(filename, request.data, MAXNAME);
-				upinfo.session_port = session_port;
-				strncpy(upinfo.filename, filename, MAXNAME);
-				strncpy(upinfo.userID, client_list[c_id].user_id, MAXNAME);
-				pthread_create(&tid, NULL, replica_upload, (void *) &upinfo);
+				if(primary_server_id == local_server_id){
+					pthread_t tid;
+					struct upload_info upinfo;
+					upinfo.session_port = session_port;
+					strncpy(upinfo.filename, filename, MAXNAME);
+					strncpy(upinfo.userID, client_list[c_id].user_id, MAXNAME);
+					pthread_create(&tid, NULL, replica_upload, (void *) &upinfo);
+				}
 				reply.opcode = ACK;
 				sendto(session_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *)&client, client_len);
 				strncpy(filename, request.data, MAXNAME);
