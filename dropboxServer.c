@@ -307,6 +307,7 @@ void *session_manager(void* args){
 				sendto(session_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *)&client, client_len);
 				strncpy(filename, request.data, MAXNAME);
 				receive_file(filename, session_socket, client_list[c_id].user_id);
+					fprintf(stderr, "%s\n", "AAAAAAAAAAAAAAAAAAAAAAAAAAAA" );
 				break;
 			case DOWNLOAD:
 				reply.opcode = ACK;
@@ -607,7 +608,7 @@ void *replica_manager(){
 				perror("Error");
 			}
 			n = recvfrom(rm_socket, (char *) &ping, PACKETSIZE, 0, (struct sockaddr *) &from, (socklen_t *) &from_len);
-			printf("Received opcode %hi, pkt #%hi\n\n", ping.opcode, ping.seqnum);
+			//printf("Received opcode %hi, pkt #%hi\n\n", ping.opcode, ping.seqnum);
 			n = sendto(rm_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *) &(server_list[ping.seqnum]), from_len);
 			while(n < 0){
 				n = sendto(rm_socket, (char *) &reply, PACKETSIZE, 0, (struct sockaddr *) &(server_list[ping.seqnum]), from_len);
@@ -618,7 +619,7 @@ void *replica_manager(){
 				pthread_create(&thread_answer, NULL, election_answer, NULL);
 				pthread_join(thread_elect,(void *) &n);
 			}
-			printf("Sent opcode %hi, pkt #%hi\n\n", reply.opcode, reply.seqnum);
+			//printf("Sent opcode %hi, pkt #%hi\n\n", reply.opcode, reply.seqnum);
 		}
 	}
 }
