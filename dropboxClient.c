@@ -658,7 +658,7 @@ void* thread_frontend(){
 	while(online){
 		n = recvfrom(frontend_socket, (char *) &message, PACKETSIZE, 0, (struct sockaddr *) &from, (socklen_t *) &from_len);
 		if(n && message.opcode == PING){
-			serv_addr = from;
+			memcpy((void *) &serv_addr,message.data,sizeof(struct sockaddr_in));
 		}
 	}
 }

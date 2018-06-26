@@ -181,7 +181,7 @@ void list_files(SOCKET socket, struct sockaddr client, char *userID){
 	sendto(socket, (char *) &reply, PACKETSIZE,0,(struct sockaddr *)&client, sizeof(client));
 }
 
-int inform_frontend(struct sockaddr client, SOCKET session_socket){
+int inform_frontend(struct sockaddr client, SOCKET session_socket, int session_port){
 	struct sockaddr_in *fe_client;
 	struct packet ping;
 	int fe_len;
@@ -189,6 +189,10 @@ int inform_frontend(struct sockaddr client, SOCKET session_socket){
 	(*fe_client).sin_port = htons(4000);
 	fe_len = sizeof(fe_client);
 	ping.opcode = PING;
+	struct sockaddr_in new_host_is;
+	new_host_is = primary_server;
+	new_host_is.sin_port = htons(session_port);
+	memcpy(ping.data,(void *)&new_host_is,sizeof(new_host_is));
 	sendto(session_socket, (char *) &ping, PACKETSIZE, 0, (struct sockaddr *)&fe_client, fe_len);
 	return 0;
 }
@@ -283,9 +287,10 @@ void *session_manager(void* args){
 
 	while(active){
 		if(inform_frontend_clients > 0 && has_informed == 0){
-			inform_frontend(client, session_socket);
+			inform_frontend(client, session_socket, session_port);
 			inform_frontend_clients--;
 			has_informed = 1;
+			printf("Informou cliente de novo addr \n\n");
 		}
 		else if (inform_frontend_clients == 0){
 			has_informed = 0;
