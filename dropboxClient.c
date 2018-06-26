@@ -91,9 +91,6 @@ char* devolvePathSyncDir(){
 	strcat(pathsyncdir,userID);
 	strcat(pathsyncdir,"/");
 
-	sscanf(%s,"coia", );
-	sNprintf(string,2120,"%s dsouhars %s",string2,string3);
-
 	return pathsyncdir;
 }
 
