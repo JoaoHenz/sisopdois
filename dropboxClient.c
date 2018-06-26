@@ -339,16 +339,16 @@ void executaSync(struct sync_data syncdata){
 		}
 		i++;
 	}
-	//printf("\nO que deve ser deletado no cliente:\n");
+	printf("\nO que deve ser deletado no cliente:\n");
 	i=0;
 	while(strcmp(syncdata.server_old[i],"FIMDALISTA")!=0){
 		if (!encontrou(syncdata.server_old[i],syncdata.server_new)){
 			path = devolvePathSyncDir();
 			strcat(path,syncdata.server_old[i]);
 			ret = remove(path);
-			//printf(" - %s\n",path);
+			printf(" - %s\n",path);
 			if(ret != 0) {
-				printf("Algo deu errado na deleção local do arquivo!\n");
+				printf("Algo deu errado no path da deleção local do arquivo!\n");
 			}
 		}
 		i++;
@@ -370,14 +370,17 @@ void firstExecutaSync(struct sync_data syncdata){
 		}
 		i++;
 	}
-	//printf("\nO que deve ser deletado no cliente:\n");
+	printf("\nO que deve ser deletado no cliente:\n");
 	i=0;
 	while(strcmp(syncdata.client_new[i],"FIMDALISTA")!=0){
 		if (!encontrou(syncdata.client_new[i],syncdata.server_new)){
 			path = devolvePathSyncDir();
 			strcat(path,syncdata.client_new[i]);
 			ret = remove(path);
-			//printf(" - %s\n",path);
+			printf(" - %s\n",path);
+			if(ret != 0) {
+				printf("Algo deu errado no path da deleção local do arquivo!\n");
+			}
 		}
 		i++;
 	}
