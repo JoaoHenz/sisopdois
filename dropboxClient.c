@@ -337,7 +337,7 @@ void executaSync(struct sync_data syncdata){
 			get_file(syncdata.server_new[i],devolvePathSyncDirBruto());
 			//printf(" - %s\n",syncdata.server_new[i]);
 		}
-		i++;	
+		i++;
 	}
 	//printf("\nO que deve ser deletado no cliente:\n");
 	i=0;
@@ -349,7 +349,7 @@ void executaSync(struct sync_data syncdata){
 			//printf(" - %s\n",path);
 			if(ret != 0) {
 				printf("Algo deu errado na deleção local do arquivo!\n");
-			} 
+			}
 		}
 		i++;
 	}

@@ -650,12 +650,15 @@ int main(int argc,char *argv[]){
 	primary_server_id = atoi(strid);
 	inform_frontend_clients = 0;
 
+
+	/*
 	host_server_1 = gethostbyname(ip_server_1);
 	server_list[1].sin_family = AF_INET;
 	server_list[1].sin_port = htons(5000);
 	server_list[1].sin_addr = *((struct in_addr *)host_server_1->h_addr);
 	bzero(&(server_list[1].sin_zero), 8);
 	//
+
 	host_server_2 = gethostbyname(ip_server_2);
 	server_list[2].sin_family = AF_INET;
 	server_list[2].sin_port = htons(5000);
@@ -670,7 +673,7 @@ int main(int argc,char *argv[]){
 	//
 	primary_server = server_list[primary_server_id];
 	primary_len = sizeof(server_list[primary_server_id]);
-
+	*/
 
 	for (i = 0; i < MAXCLIENTS; i++){
 		for(j = 0; j < MAXSESSIONS; j++){
@@ -697,7 +700,7 @@ int main(int argc,char *argv[]){
 	// Setup done
 
 	//pthread_create(&tid1, NULL, setrep, NULL);
-	pthread_create(&tid2, NULL, replica_manager, NULL);
+	//pthread_create(&tid2, NULL, replica_manager, NULL);
 
 	while(online){
 		if (!recvfrom(main_socket, (char *) &login_request, PACKETSIZE, 0, (struct sockaddr *) &client, (socklen_t *) &client_len)){
@@ -706,19 +709,15 @@ int main(int argc,char *argv[]){
 		else{
 			if(login_request.opcode == LOGIN){
 
+				/*TODO
 				if(primary_server_id == local_server_id){
 					int servo_id = local_server_id +1;
-
 					while(servo_id <= 3){
 						int recebeuack =  FALSE;
 						struct packet reply;
 						int length;
-
-
 						struct sockaddr_in servo_logaddr = server_list[servo_id];
 						servo_logaddr.sin_port = htons(6000);
-
-
 						while(!recebeuack){
 							sendto(main_socket, (char *)&login_request, PACKETSIZE, 0, (const struct sockaddr *) &servo_logaddr, sizeof(struct sockaddr_in));
 							recvfrom(main_socket, (char *)&reply, PACKETSIZE, 0, (struct sockaddr *) &servo_logaddr, &length);
@@ -729,7 +728,7 @@ int main(int argc,char *argv[]){
 						servo_id++;
 					}
 				}
-
+				*/
 
 				session_port = login(login_request);
 				//printf("\nopcode is %hi\n\n",login_request.opcode);
