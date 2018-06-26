@@ -189,10 +189,18 @@ int inform_frontend(struct sockaddr client, SOCKET session_socket, int session_p
 	(*fe_client).sin_port = htons(4000);
 	fe_len = sizeof(fe_client);
 	ping.opcode = PING;
-	struct sockaddr_in new_host_is;
-	new_host_is = primary_server;
-	new_host_is.sin_port = htons(session_port);
-	memcpy(ping.data,(void *)&new_host_is,sizeof(new_host_is));
+	if(local_server_id == 1){
+		strncpy(ping.data,ip_server_1,20);
+		strcat(ping.data,"\0");
+	}
+	else if (local_server_id == 2){
+		strncpy(ping.data,ip_server_2,20);
+		strcat(ping.data,"\0");
+	}
+	else if (local_server_id == 3){
+		strncpy(ping.data,ip_server_3,20);
+		strcat(ping.data,"\0");
+	}
 	sendto(session_socket, (char *) &ping, PACKETSIZE, 0, (struct sockaddr *)&fe_client, fe_len);
 	return 0;
 }
@@ -286,7 +294,8 @@ void *session_manager(void* args){
 		// Setup done
 
 	while(active){
-		if(inform_frontend_clients > 0 && has_informed == 0){
+		printf("Inform = %d, has_informed = %d, local id = %d, primary id = %d\n\n",inform_frontend_clients,has_informed,local_server_id,primary_server_id);
+		if(inform_frontend_clients > 0 && has_informed == 0 && local_server_id == primary_server_id){
 			inform_frontend(client, session_socket, session_port);
 			inform_frontend_clients--;
 			has_informed = 1;
