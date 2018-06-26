@@ -91,6 +91,8 @@ char* devolvePathSyncDir(){
 	strcat(pathsyncdir,userID);
 	strcat(pathsyncdir,"/");
 
+	sscanf(%s,"coia", );
+	sNprintf(string,2120,"%s dsouhars %s",string2,string3);
 
 	return pathsyncdir;
 }
@@ -102,7 +104,6 @@ char* devolvePathSyncDirBruto(){
 	strcat(pathsyncdir,"sync_dir_");
 	strcat(pathsyncdir,userID);
 	strcat(pathsyncdir,"/");
-
 
 	return pathsyncdir;
 }
@@ -278,12 +279,11 @@ void delete_file(char *filename){
 	strcat(path,userID);
 	strcat(path,"/");
 	strcat(path,filename);
-
 	/*
 	fp = fopen (path,"r");
-  if (fp == NULL) {
-      printf ("Arquivo não existe\n");
-  }
+	if (fp == NULL) {
+		printf ("Arquivo não existe\n");
+	}
 	*/
 		message.opcode = DELETE;
 		message.seqnum = 0;
@@ -296,7 +296,6 @@ void delete_file(char *filename){
 				recebeuack = TRUE;
 			}
 		}
-
 	/*
 	ret = remove(path);
 
@@ -341,7 +340,7 @@ void executaSync(struct sync_data syncdata){
 			get_file(syncdata.server_new[i],devolvePathSyncDirBruto());
 			//printf(" - %s\n",syncdata.server_new[i]);
 		}
-		i++;
+		i++;	
 	}
 	//printf("\nO que deve ser deletado no cliente:\n");
 	i=0;
@@ -351,12 +350,13 @@ void executaSync(struct sync_data syncdata){
 			strcat(path,syncdata.server_old[i]);
 			ret = remove(path);
 			//printf(" - %s\n",path);
+			if(ret != 0) {
+				printf("Algo deu errado na deleção local do arquivo!\n");
+			} 
 		}
 		i++;
 	}
 	i=0;
-
-
 }
 
 void firstExecutaSync(struct sync_data syncdata){
@@ -385,8 +385,6 @@ void firstExecutaSync(struct sync_data syncdata){
 		i++;
 	}
 	i=0;
-
-
 }
 
 void first_sync_client(){
@@ -405,7 +403,6 @@ void first_sync_client(){
 	contstr[0] = 0;
 	i = 0;
 	contador= 0;
-
 		//Verifica o que há no cliente
 		j=0;
 		path = devolvePathSyncDir();
@@ -435,9 +432,7 @@ void first_sync_client(){
 		memcpy(syncdataglobal.client_old,syncdataglobal.client_new,FILENAMESIZE*MAXARQINDIR);
 		memcpy(syncdataglobal.server_old,syncdataglobal.server_new,FILENAMESIZE*MAXARQINDIR);
 
-
 		firstExecutaSync(syncdataglobal);
-
 		primeiro_sync = FALSE;
 }
 
@@ -457,8 +452,6 @@ void sync_client(){
 	contstr[0] = 0;
 	i = 0;
 	contador= 0;
-
-
 		//Verifica o que há no cliente
 		j=0;
 		path = devolvePathSyncDir();
@@ -489,7 +482,6 @@ void sync_client(){
 
 		memcpy(syncdataglobal.client_old,syncdataglobal.client_new,FILENAMESIZE*MAXARQINDIR);
 		memcpy(syncdataglobal.server_old,syncdataglobal.server_new,FILENAMESIZE*MAXARQINDIR);
-
 }
 
 void close_session(){
@@ -571,8 +563,6 @@ void list_client(){
 			printf(" - %s\n",file->d_name);
 		}
 	}
-
-
 }
 
 void treat_command(char command[100]){
@@ -618,15 +608,11 @@ void treat_command(char command[100]){
 		setsynctime(atoi(argument));
 		result =7;
 	}
-
-
 	if (!result){;
 	}
 	else{
 		printf("Operação %d efetuada com sucesso!\n\n",result);
 	}
-
-
 	//printf("Seu comando foi: %s \n",command);
 }
 
@@ -681,12 +667,10 @@ int main(int argc,char *argv[]){
 	int loginworked = FALSE;
 	char strporta[100];
 
-	if (pthread_mutex_init(&lockcomunicacao, NULL) != 0)
-		{
-				printf("\n inicialização do mutex falhou\n");
-				return 1;
-		}
-
+	if (pthread_mutex_init(&lockcomunicacao, NULL) != 0){
+		printf("\n inicialização do mutex falhou\n");
+		return 1;
+	}
 	if (argc!=4){
 		printf("Escreva no formato: ./dropboxClient <ID_do_usuário> <endereço_do_host> <porta>\n");
 	}
@@ -697,7 +681,6 @@ int main(int argc,char *argv[]){
 		port = atoi(strporta);
 		server = gethostbyname(host);
 
-
 		if ((socket_local = socket(AF_INET, SOCK_DGRAM, 0)) == -1)
 			printf("ERROR opening socket");
 		serv_addr.sin_family = AF_INET;
@@ -706,7 +689,6 @@ int main(int argc,char *argv[]){
 		bzero(&(serv_addr.sin_zero), 8);
 
 		printf("Socket pelo qual o cliente está enviando coisas: %d\n",socket_local);
-
 
 		loginworked = login_server(host,port);
 		if(!loginworked){
@@ -736,7 +718,6 @@ int main(int argc,char *argv[]){
 			//close_session();
 		}
 	}
-
 	return 0;
 }
 
