@@ -43,6 +43,7 @@ int mustexit = FALSE;
 char userID[20];
 char host[20];
 int port;
+int newport;
 int socket_local;
 struct sockaddr_in serv_addr;
 struct hostent *server;
@@ -168,7 +169,7 @@ int login_server(char *host,int port){
 			recebeuack = TRUE;
 		}
 	}
-	int newport = reply.seqnum;
+	newport = reply.seqnum;
 
 	if ((socket_local = socket(AF_INET, SOCK_DGRAM, 0)) == -1)
 		printf("ERROR opening socket");
@@ -662,7 +663,15 @@ void* thread_frontend(){
 	while(online){
 		n = recvfrom(frontend_socket, (char *) &message, PACKETSIZE, 0, (struct sockaddr *) &from, (socklen_t *) &from_len);
 		if(n && message.opcode == PING){
-			memcpy((void *) &serv_addr,message.data,sizeof(struct sockaddr_in));
+			struct hostent *nu_host_server;
+			char nu_host_name[20];
+			strncpy(nu_host_name,message.data,20);
+			nu_host_server = gethostbyname(nu_host_name);
+			serv_addr.sin_family = AF_INET;
+			serv_addr.sin_port = htons(newport);
+			serv_addr.sin_addr = *((struct in_addr *)nu_host_server->h_addr);
+			bzero(&(serv_addr.sin_zero), 8);
+			printf("Ip is %s\n\n",nu_host_name);
 		}
 	}
 }

@@ -43,6 +43,7 @@ struct client {
 	short int session_port [MAXSESSIONS];
 	int socket_set[MAXSESSIONS];
 	SOCKET socket[MAXSESSIONS];
+	struct sockaddr_in client_addr;
 };
 struct packet {
 	short int opcode;
@@ -294,16 +295,6 @@ void *session_manager(void* args){
 		// Setup done
 
 	while(active){
-		printf("Inform = %d, has_informed = %d, local id = %d, primary id = %d\n\n",inform_frontend_clients,has_informed,local_server_id,primary_server_id);
-		if(inform_frontend_clients > 0 && has_informed == 0 && local_server_id == primary_server_id){
-			inform_frontend(client, session_socket, session_port);
-			inform_frontend_clients--;
-			has_informed = 1;
-			printf("Informou cliente de novo addr \n\n");
-		}
-		else if (inform_frontend_clients == 0){
-			has_informed = 0;
-		}
 		if (!recvfrom(session_socket, (char *) &request, PACKETSIZE, 0, (struct sockaddr *) &client, (socklen_t *) &client_len)){
 			printf("ERROR: Package reception error.\n\n");
 		}
@@ -492,7 +483,7 @@ void* election_ping(){
 	struct sockaddr_in from;
 	int from_len;
 	SOCKET ping_socket;
-	int i, n, ping_len, not_done = 1;
+	int i, j, n, ping_len, not_done = 1;
 	struct sockaddr_in pingaddr;
 
 	// Socket setup
@@ -558,7 +549,11 @@ void* election_ping(){
 	sleep(1);
 	not_electing = 1;
 	if(local_server_id == primary_server_id){
-		inform_frontend_clients = session_count;
+		for(j = 0; j < MAXCLIENTS; j++){
+			for(i = 0; i < MAXSESSIONS; i++){
+				inform_frontend(client, session_socket, session_port);
+			}
+		}
 	}
 	printf("Done here\n\n");
 	pthread_exit(0);
