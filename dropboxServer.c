@@ -137,7 +137,7 @@ void receive_file(char *file, int socket, char*userID){
 	strcat(path, userID);
 	strcat(path, "/");
 	strcat(path, file);
-	printf("File path is: %s\n\n",path);
+	printf("RECEIVE: File path is: %s\n\n",path);
 	receive_file_from(socket, path);
 }
 
@@ -302,6 +302,7 @@ void *session_manager(void* args){
 				strncpy(filename, request.data, MAXNAME);
 				receive_file(filename, session_socket, client_list[c_id].user_id);
 					fprintf(stderr, "%s\n", "AAAAAAAAAAAAAAAAAAAAAAAAAAAA" );
+
 
 					if(primary_server_id == local_server_id){
 						pthread_t tid;
@@ -638,8 +639,8 @@ int main(int argc,char *argv[]){
 	session_count = 0;
 	// num_primario indicates which server is primary: 1 -> a, 2 -> b, 3 -> this one
 
-	if (argc<2){
-		printf("Escreva no formato: ./dropboxServer <endereço_do_server_1> <endereço_do_server_2> <endereço_do_server_3> <id_do_server_local>\n\n");
+	if (argc<6){
+		printf("Escreva no formato: ./dropboxServer <endereço_do_server_1> <endereço_do_server_2> <endereço_do_server_3> <id_deste_server> <id_do_server_primario>\n\n");
 		return 0;
 	}
 
@@ -647,36 +648,35 @@ int main(int argc,char *argv[]){
 	strcpy(ip_server_1,argv[1]);
 	inform_frontend_clients = 0;
 
-	if (argc==6){
-		strcpy(ip_server_2,argv[2]);
-		strcpy(ip_server_3,argv[3]);
-		strcpy(strid,argv[4]);
-		local_server_id = atoi(strid);
-		strcpy(strid,argv[5]);
-		primary_server_id = atoi(strid);
+	strcpy(ip_server_2,argv[2]);
+	strcpy(ip_server_3,argv[3]);
+	strcpy(strid,argv[4]);
+	local_server_id = atoi(strid);
+	strcpy(strid,argv[5]);
+	primary_server_id = atoi(strid);
 
-		host_server_1 = gethostbyname(ip_server_1);
-		server_list[1].sin_family = AF_INET;
-		server_list[1].sin_port = htons(5000);
-		server_list[1].sin_addr = *((struct in_addr *)host_server_1->h_addr);
-		bzero(&(server_list[1].sin_zero), 8);
-		//
+	host_server_1 = gethostbyname(ip_server_1);
+	server_list[1].sin_family = AF_INET;
+	server_list[1].sin_port = htons(5000);
+	server_list[1].sin_addr = *((struct in_addr *)host_server_1->h_addr);
+	bzero(&(server_list[1].sin_zero), 8);
+	//
 
-		host_server_2 = gethostbyname(ip_server_2);
-		server_list[2].sin_family = AF_INET;
-		server_list[2].sin_port = htons(5000);
-		server_list[2].sin_addr = *((struct in_addr *)host_server_2->h_addr);
-		bzero(&(server_list[2].sin_zero), 8);
-		//
-		host_server_3 = gethostbyname(ip_server_3);
-		server_list[3].sin_family = AF_INET;
-		server_list[3].sin_port = htons(5000);
-		server_list[3].sin_addr = *((struct in_addr *)host_server_3->h_addr);
-		bzero(&(server_list[3].sin_zero), 8);
-		//
-		primary_server = server_list[primary_server_id];
-		primary_len = sizeof(server_list[primary_server_id]);
-	}
+	host_server_2 = gethostbyname(ip_server_2);
+	server_list[2].sin_family = AF_INET;
+	server_list[2].sin_port = htons(5000);
+	server_list[2].sin_addr = *((struct in_addr *)host_server_2->h_addr);
+	bzero(&(server_list[2].sin_zero), 8);
+	//
+	host_server_3 = gethostbyname(ip_server_3);
+	server_list[3].sin_family = AF_INET;
+	server_list[3].sin_port = htons(5000);
+	server_list[3].sin_addr = *((struct in_addr *)host_server_3->h_addr);
+	bzero(&(server_list[3].sin_zero), 8);
+	//
+	primary_server = server_list[primary_server_id];
+	primary_len = sizeof(server_list[primary_server_id]);
+
 
 	for (i = 0; i < MAXCLIENTS; i++){
 		for(j = 0; j < MAXSESSIONS; j++){
@@ -713,26 +713,25 @@ int main(int argc,char *argv[]){
 		else{
 			if(login_request.opcode == LOGIN){
 
-				if (argc==6){
-					if(primary_server_id == local_server_id){
-						int servo_id = local_server_id +1;
-						while(servo_id <= 3){
-							int recebeuack =  FALSE;
-							struct packet reply;
-							int length;
-							struct sockaddr_in servo_logaddr = server_list[servo_id];
-							servo_logaddr.sin_port = htons(6000);
-							while(!recebeuack){
-								sendto(main_socket, (char *)&login_request, PACKETSIZE, 0, (const struct sockaddr *) &servo_logaddr, sizeof(struct sockaddr_in));
-								recvfrom(main_socket, (char *)&reply, PACKETSIZE, 0, (struct sockaddr *) &servo_logaddr, &length);
-								if (reply.opcode == ACK){
-									recebeuack = TRUE;
-								}
+				if(primary_server_id == local_server_id){
+					int servo_id = local_server_id +1;
+					while(servo_id <= 3){
+						int recebeuack =  FALSE;
+						struct packet reply;
+						int length;
+						struct sockaddr_in servo_logaddr = server_list[servo_id];
+						servo_logaddr.sin_port = htons(6000);
+						while(!recebeuack){
+							sendto(main_socket, (char *)&login_request, PACKETSIZE, 0, (const struct sockaddr *) &servo_logaddr, sizeof(struct sockaddr_in));
+							recvfrom(main_socket, (char *)&reply, PACKETSIZE, 0, (struct sockaddr *) &servo_logaddr, &length);
+							if (reply.opcode == ACK){
+								recebeuack = TRUE;
 							}
-							servo_id++;
 						}
+						servo_id++;
 					}
 				}
+
 
 				session_port = login(login_request);
 				//printf("\nopcode is %hi\n\n",login_request.opcode);

@@ -253,6 +253,7 @@ void send_file(char *file){
 	removeBlank(filepath);
 	//printf("Recebemos ack. Vamos enviar o arquivo agora. Nome do arquivo era: %s\ne o path era: %s\n",filename,filepath);
 	send_file_to(socket_local, filepath, *((struct sockaddr*) &serv_addr));
+	
 	pthread_mutex_unlock(&lockcomunicacao);
 }
 
@@ -467,9 +468,9 @@ void sync_client(){
 		strcpy(syncdataglobal.client_new[j], "FIMDALISTA");
 		//Verifica o que há no server
 		j=0;
-		do{
-			list_serverstr = list_server();
-		}while(list_serverstr[0]!='C');
+
+		list_serverstr = list_server();
+
 		printf("List server foi: %s\n",list_serverstr);
 		nomearqremoto = findnext(list_serverstr,contador,contstr);
 		contador++;
