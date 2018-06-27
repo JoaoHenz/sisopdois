@@ -43,7 +43,6 @@ int mustexit = FALSE;
 char userID[20];
 char host[20];
 int port;
-int newport;
 int socket_local;
 struct sockaddr_in serv_addr;
 struct hostent *server;
@@ -92,7 +91,6 @@ char* devolvePathSyncDir(){
 	strcat(pathsyncdir,userID);
 	strcat(pathsyncdir,"/");
 
-
 	return pathsyncdir;
 }
 
@@ -103,7 +101,6 @@ char* devolvePathSyncDirBruto(){
 	strcat(pathsyncdir,"sync_dir_");
 	strcat(pathsyncdir,userID);
 	strcat(pathsyncdir,"/");
-
 
 	return pathsyncdir;
 }
@@ -171,7 +168,7 @@ int login_server(char *host,int port){
 			recebeuack = TRUE;
 		}
 	}
-	newport = reply.seqnum;
+	int newport = reply.seqnum;
 
 	if ((socket_local = socket(AF_INET, SOCK_DGRAM, 0)) == -1)
 		printf("ERROR opening socket");
@@ -279,12 +276,11 @@ void delete_file(char *filename){
 	strcat(path,userID);
 	strcat(path,"/");
 	strcat(path,filename);
-
 	/*
 	fp = fopen (path,"r");
-  if (fp == NULL) {
-      printf ("Arquivo não existe\n");
-  }
+	if (fp == NULL) {
+		printf ("Arquivo não existe\n");
+	}
 	*/
 		message.opcode = DELETE;
 		message.seqnum = 0;
@@ -297,7 +293,6 @@ void delete_file(char *filename){
 				recebeuack = TRUE;
 			}
 		}
-
 	/*
 	ret = remove(path);
 
@@ -315,49 +310,51 @@ void executaSync(struct sync_data syncdata){
 	char* path;
 	int ret=0;
 
-	//printf("\nO que de novo deve ser enviado para o server:\n");
+	printf("\nO que de novo deve ser enviado para o server:\n");
 	i=0;
 	while(strcmp(syncdata.client_new[i],"FIMDALISTA")!=0){
-		if (!encontrou(syncdata.client_new[i],syncdata.client_old)){
+		if (!encontrou(syncdata.client_new[i],syncdata.client_old) && !encontrou(syncdata.client_new[i],syncdata.server_new)){
 			path = devolvePathSyncDirBruto();
 			strcat(path,syncdata.client_new[i]);
+			printf(" - %s\n",path);
 			send_file(path);
-			//printf(" - %s\n",path);
 		}
 		i++;
 	}
-	//printf("\nO que deve ser deletado do server:\n");
+	printf("\nO que deve ser deletado do server:\n");
 	i=0;
 	while(strcmp(syncdata.client_old[i],"FIMDALISTA")!=0){
-		if (!encontrou(syncdata.client_old[i],syncdata.client_new)){
+		if (!encontrou(syncdata.client_old[i],syncdata.client_new) && encontrou(syncdata.client_old[i],syncdata.server_new)){
+			printf(" - %s\n",syncdata.client_old[i]);
 			delete_file(syncdata.client_old[i]);
-			//printf(" - %s\n",syncdata.client_old[i]);
 		}
 		i++;
 	}
-	//printf("\nO que deve ser baixado de novo do server:\n");
+	printf("\nO que deve ser baixado de novo do server:\n");
 	i=0;
 	while(strcmp(syncdata.server_new[i],"FIMDALISTA")!=0){
-		if (!encontrou(syncdata.server_new[i],syncdata.server_old)){
+		if (!encontrou(syncdata.server_new[i],syncdata.server_old) && !encontrou(syncdata.server_new[i],syncdata.client_new)){
+			printf(" - %s\n",syncdata.server_new[i]);
 			get_file(syncdata.server_new[i],devolvePathSyncDirBruto());
-			//printf(" - %s\n",syncdata.server_new[i]);
 		}
 		i++;
 	}
-	//printf("\nO que deve ser deletado no cliente:\n");
+	printf("\nO que deve ser deletado no cliente:\n");
 	i=0;
 	while(strcmp(syncdata.server_old[i],"FIMDALISTA")!=0){
-		if (!encontrou(syncdata.server_old[i],syncdata.server_new)){
+		if (!encontrou(syncdata.server_old[i],syncdata.server_new) && encontrou(syncdata.server_old[i],syncdata.client_new)){
 			path = devolvePathSyncDir();
 			strcat(path,syncdata.server_old[i]);
+			printf(" - %s\n",path);
 			ret = remove(path);
-			//printf(" - %s\n",path);
+
+			if(ret != 0) {
+				printf("Algo deu errado no path da deleção local do arquivo!\n");
+			}
 		}
 		i++;
 	}
 	i=0;
-
-
 }
 
 void firstExecutaSync(struct sync_data syncdata){
@@ -374,20 +371,21 @@ void firstExecutaSync(struct sync_data syncdata){
 		}
 		i++;
 	}
-	//printf("\nO que deve ser deletado no cliente:\n");
+	printf("\nO que deve ser deletado no cliente:\n");
 	i=0;
 	while(strcmp(syncdata.client_new[i],"FIMDALISTA")!=0){
 		if (!encontrou(syncdata.client_new[i],syncdata.server_new)){
 			path = devolvePathSyncDir();
 			strcat(path,syncdata.client_new[i]);
 			ret = remove(path);
-			//printf(" - %s\n",path);
+			printf(" - %s\n",path);
+			if(ret != 0) {
+				printf("Algo deu errado no path da deleção local do arquivo!\n");
+			}
 		}
 		i++;
 	}
 	i=0;
-
-
 }
 
 void first_sync_client(){
@@ -406,7 +404,6 @@ void first_sync_client(){
 	contstr[0] = 0;
 	i = 0;
 	contador= 0;
-
 		//Verifica o que há no cliente
 		j=0;
 		path = devolvePathSyncDir();
@@ -436,9 +433,7 @@ void first_sync_client(){
 		memcpy(syncdataglobal.client_old,syncdataglobal.client_new,FILENAMESIZE*MAXARQINDIR);
 		memcpy(syncdataglobal.server_old,syncdataglobal.server_new,FILENAMESIZE*MAXARQINDIR);
 
-
 		firstExecutaSync(syncdataglobal);
-
 		primeiro_sync = FALSE;
 }
 
@@ -458,8 +453,6 @@ void sync_client(){
 	contstr[0] = 0;
 	i = 0;
 	contador= 0;
-
-
 		//Verifica o que há no cliente
 		j=0;
 		path = devolvePathSyncDir();
@@ -474,7 +467,10 @@ void sync_client(){
 		strcpy(syncdataglobal.client_new[j], "FIMDALISTA");
 		//Verifica o que há no server
 		j=0;
-		list_serverstr = list_server();
+		do{
+			list_serverstr = list_server();
+		}while(list_serverstr[0]!='C');
+		printf("List server foi: %s\n",list_serverstr);
 		nomearqremoto = findnext(list_serverstr,contador,contstr);
 		contador++;
 		while(nomearqremoto[0]!='\0' && nomearqremoto[0]!='\n'){
@@ -490,7 +486,6 @@ void sync_client(){
 
 		memcpy(syncdataglobal.client_old,syncdataglobal.client_new,FILENAMESIZE*MAXARQINDIR);
 		memcpy(syncdataglobal.server_old,syncdataglobal.server_new,FILENAMESIZE*MAXARQINDIR);
-
 }
 
 void close_session(){
@@ -572,8 +567,6 @@ void list_client(){
 			printf(" - %s\n",file->d_name);
 		}
 	}
-
-
 }
 
 void treat_command(char command[100]){
@@ -619,15 +612,11 @@ void treat_command(char command[100]){
 		setsynctime(atoi(argument));
 		result =7;
 	}
-
-
 	if (!result){;
 	}
 	else{
 		printf("Operação %d efetuada com sucesso!\n\n",result);
 	}
-
-
 	//printf("Seu comando foi: %s \n",command);
 }
 
@@ -674,7 +663,6 @@ void* thread_frontend(){
 		n = recvfrom(frontend_socket, (char *) &message, PACKETSIZE, 0, (struct sockaddr *) &from, (socklen_t *) &from_len);
 		if(n && message.opcode == PING){
 			serv_addr = from;
-			serv_addr.sin_port = htons(newport);
 		}
 	}
 }
@@ -683,12 +671,10 @@ int main(int argc,char *argv[]){
 	int loginworked = FALSE;
 	char strporta[100];
 
-	if (pthread_mutex_init(&lockcomunicacao, NULL) != 0)
-		{
-				printf("\n inicialização do mutex falhou\n");
-				return 1;
-		}
-
+	if (pthread_mutex_init(&lockcomunicacao, NULL) != 0){
+		printf("\n inicialização do mutex falhou\n");
+		return 1;
+	}
 	if (argc!=4){
 		printf("Escreva no formato: ./dropboxClient <ID_do_usuário> <endereço_do_host> <porta>\n");
 	}
@@ -699,7 +685,6 @@ int main(int argc,char *argv[]){
 		port = atoi(strporta);
 		server = gethostbyname(host);
 
-
 		if ((socket_local = socket(AF_INET, SOCK_DGRAM, 0)) == -1)
 			printf("ERROR opening socket");
 		serv_addr.sin_family = AF_INET;
@@ -708,7 +693,6 @@ int main(int argc,char *argv[]){
 		bzero(&(serv_addr.sin_zero), 8);
 
 		printf("Socket pelo qual o cliente está enviando coisas: %d\n",socket_local);
-
 
 		loginworked = login_server(host,port);
 		if(!loginworked){
@@ -738,7 +722,6 @@ int main(int argc,char *argv[]){
 			//close_session();
 		}
 	}
-
 	return 0;
 }
 
