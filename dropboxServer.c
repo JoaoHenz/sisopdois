@@ -182,12 +182,12 @@ void list_files(SOCKET socket, struct sockaddr client, char *userID){
 	sendto(socket, (char *) &reply, PACKETSIZE,0,(struct sockaddr *)&client, sizeof(client));
 }
 
-int inform_frontend(struct sockaddr client, SOCKET session_socket){
-	struct sockaddr_in *fe_client;
+int inform_frontend(struct sockaddr_in client, SOCKET session_socket){
+	struct sockaddr_in fe_client;
 	struct packet ping;
 	int fe_len;
-	fe_client = (struct sockaddr_in *) &client;
-	(*fe_client).sin_port = htons(4000);
+	fe_client = client;
+	fe_client.sin_port = htons(4000);
 	fe_len = sizeof(fe_client);
 	ping.opcode = PING;
 	sendto(session_socket, (char *) &ping, PACKETSIZE, 0, (struct sockaddr *)&fe_client, fe_len);
@@ -283,14 +283,6 @@ void *session_manager(void* args){
 		// Setup done
 
 	while(active){
-		if(inform_frontend_clients > 0 && has_informed == 0){
-			inform_frontend(client, session_socket);
-			inform_frontend_clients--;
-			has_informed = 1;
-		}
-		else if (inform_frontend_clients == 0){
-			has_informed = 0;
-		}
 		if (!recvfrom(session_socket, (char *) &request, PACKETSIZE, 0, (struct sockaddr *) &client, (socklen_t *) &client_len)){
 			printf("ERROR: Package reception error.\n\n");
 		}
@@ -550,8 +542,13 @@ void* election_ping(){
 	printf("Got here\n\n");
 	sleep(1);
 	not_electing = 1;
+	int j;
 	if(local_server_id == primary_server_id){
-		inform_frontend_clients = session_count;
+		for(i = 0; i < MAXCLIENTS; i++){
+			for(j = 0; j < MAXSESSIONS; j++){
+				inform_frontend(client_list[i].client_session_addr[j], ping_socket);
+			}
+		}
 	}
 	printf("Done here\n\n");
 	pthread_exit(0);
