@@ -8,7 +8,6 @@ struct client {
 	short int session_port [MAXSESSIONS];
 	int socket_set[MAXSESSIONS];
 	SOCKET socket[MAXSESSIONS];
-	struct sockaddr_in addr[MAXSESSIONS];
 };
 struct pair {
 	int c_id;
@@ -20,11 +19,6 @@ struct upload_info {
 	char userID[MAXNAME];
 };
 
-struct login_pair {
-	struct sockaddr_in client_addr;
-	char userID[MAXNAME];
-};
-
 char * devolvePathHomeServer(char *userID);
 int inactive_client(int index);
 int identify_client(char user_id [MAXNAME], int* client_index);
@@ -32,7 +26,7 @@ void send_file(char *file, int socket, char *userID, struct sockaddr client_addr
 void receive_file(char *file, int socket, char*userID);
 int delete_file(char *file, int socket, char*userID);
 void list_files(SOCKET socket, struct sockaddr client, char *userID);
-int inform_frontend(struct sockaddr_in client, SOCKET session_socket);
+int inform_frontend(struct sockaddr client, SOCKET session_socket);
 void *replica_upload(void *args);
 void *session_manager(void* args);
 int login(struct packet login_request);
