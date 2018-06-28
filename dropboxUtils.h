@@ -43,6 +43,10 @@ struct file_info{
 	char last_modified[MAXNAME];
 	int size;
 };
+struct login_data{
+	char userID[20];
+	struct sockaddr_in adress;
+}
 
 void removeBlank(char * filename);
 int create_home_dir(char *userID);

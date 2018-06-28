@@ -240,14 +240,6 @@ void *session_manager(void* args){
 		// Setup done
 
 	while(active){
-		if(inform_frontend_clients > 0 && has_informed == 0){
-			inform_frontend(client, session_socket);
-			inform_frontend_clients--;
-			has_informed = 1;
-		}
-		else if (inform_frontend_clients == 0){
-			has_informed = 0;
-		}
 		if (!recvfrom(session_socket, (char *) &request, PACKETSIZE, 0, (struct sockaddr *) &client, (socklen_t *) &client_len)){
 			printf("ERROR: Package reception error.\n\n");
 		}
@@ -671,7 +663,12 @@ int main(int argc,char *argv[]){
 		else{
 			if(login_request.opcode == LOGIN){
 
+				struct login_data logindata;
 				if(primary_server_id == local_server_id){
+					memcpy(logindata,login_request.data,size(struct login_data)); //tira de dentro do login data
+					memcpy(logindata.adress,client,sizeof(struct sockaddr_in)); // adiciona endereço
+					memcpy(login_request.data,logindata,sizeof(struct login_data)); //bota devolta
+
 					int servo_id = local_server_id +1;
 					while(servo_id <= 3){
 						int recebeuack =  FALSE;
@@ -688,6 +685,10 @@ int main(int argc,char *argv[]){
 						}
 						servo_id++;
 					}
+				}
+				else{
+					memcpy(logindata,login_request.data,size(struct login_data));
+					memcpy(client,logindata.adress,sizeof(struct sockaddr_in));
 				}
 
 

@@ -127,6 +127,8 @@ int login_server(char *host,int port){
 	int recebeuack = FALSE;
 	struct packet message, reply;
 	unsigned int length = sizeof(struct sockaddr_in);
+	struct login_data logindata;
+
 
 	pthread_mutex_lock(&lockcomunicacao);
 
@@ -135,9 +137,11 @@ int login_server(char *host,int port){
 	for (i=0;i<PACKETSIZE;i++)
 		buffer[i]='\0';
 
+	strcpy(logindata.userID,userID);
+
 	message.opcode = LOGIN;
 	message.seqnum = LOGIN;
-	strcpy(message.data,userID);
+	memcpy(message.data,userID,sizeof(struct login_data));
 
 	while(!recebeuack){
 		n = sendto(socket_local, (char *)&message, PACKETSIZE, 0, (const struct sockaddr *) &serv_addr, sizeof(struct sockaddr_in));
