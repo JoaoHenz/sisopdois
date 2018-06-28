@@ -352,13 +352,7 @@ int login(struct packet login_request){
 	pthread_t tid;
 	struct login_pair auxpair;
 
-	if(login_request.seqnum == 1){
-		strncpy((char *) &auxpair, login_request.data, sizeof(struct login_pair));
-		strncpy (user_id, auxpair.userID, MAXNAME);
-	}
-	else{
-		strncpy (user_id, login_request.data, MAXNAME);
-	}
+	strncpy (user_id, login_request.data, MAXNAME);
 	identify_client(user_id, &index);
 	if (login_request.opcode != LOGIN || index == -1){
 		return -1;
@@ -372,9 +366,6 @@ int login(struct packet login_request){
 			(*thread_param).c_id = index;
 			(*thread_param).s_id = i;
 			create_server_userdir(client_list[index].user_id);
-			if(login_request.seqnum == 1){
-				client_list[index].addr[i] = auxpair.client_addr;
-			}
 			printf("\nClient Id is %d and  Server Id is %d\n\n", index, i);
 			pthread_create(&tid, NULL, session_manager, (void *) thread_param);
 			return port;
@@ -682,11 +673,6 @@ int main(int argc,char *argv[]){
 
 				if(primary_server_id == local_server_id){
 					int servo_id = local_server_id +1;
-					aux_addr = (struct sockaddr_in *) &client;
-					retransmitted_login.client_addr = *aux_addr;
-					memcpy(retransmitted_login.userID,login_request.data,MAXNAME+1);
-					memcpy(login_request.data, (char *)&retransmitted_login, sizeof(client));
-					login_request.seqnum = 1;
 					while(servo_id <= 3){
 						int recebeuack =  FALSE;
 						struct packet reply;
@@ -702,7 +688,6 @@ int main(int argc,char *argv[]){
 						}
 						servo_id++;
 					}
-					login_request.seqnum = 0;
 				}
 
 
