@@ -1,14 +1,10 @@
-both: client server front
+both: client server
 
 
-client: dropboxUtils.o dropboxClient.o 
-	gcc -o dropboxClient dropboxUtils.o dropboxClient.o -lpthread 
-server: dropboxUtils.o dropboxServer.o 
+client: dropboxUtils.o dropboxClient.o
+	gcc -o dropboxClient dropboxUtils.o dropboxClient.o -lpthread
+server: dropboxUtils.o dropboxServer.o
 	gcc -o dropboxServer dropboxUtils.o dropboxServer.o -lpthread
-front: frontEnd.o
-	gcc -o frontEnd frontEnd.o -lpthread
-frontEnd.o: frontEnd.c
-	gcc -c frontEnd.c
 dropboxUtils.o: dropboxUtils.c
 	gcc -c dropboxUtils.c
 dropboxClient.o: dropboxClient.c
