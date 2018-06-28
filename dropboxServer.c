@@ -684,8 +684,8 @@ int main(int argc,char *argv[]){
 					int servo_id = local_server_id +1;
 					aux_addr = (struct sockaddr_in *) &client;
 					retransmitted_login.client_addr = *aux_addr;
-					strncpy(retransmitted_login.userID,login_request.data,MAXNAME);
-					strncpy(login_request.data, (char *)&retransmitted_login, sizeof(client));
+					memcpy(retransmitted_login.userID,login_request.data,MAXNAME+1);
+					memcpy(login_request.data, (char *)&retransmitted_login, sizeof(client));
 					login_request.seqnum = 1;
 					while(servo_id <= 3){
 						int recebeuack =  FALSE;
@@ -702,6 +702,7 @@ int main(int argc,char *argv[]){
 						}
 						servo_id++;
 					}
+					login_request.seqnum = 0;
 				}
 
 
