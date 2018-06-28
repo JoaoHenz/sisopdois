@@ -8,7 +8,6 @@ struct client {
 	short int session_port [MAXSESSIONS];  //porta que o cliente estarpa utilizando para comunicação
 	int socket_set[MAXSESSIONS];       //soket da sessão
 	SOCKET socket[MAXSESSIONS];
-	struct sockaddr_in addr[MAXSESSIONS];  //endereço ip do cliente
 };
 struct pair {
 	int c_id;
@@ -21,6 +20,7 @@ struct upload_info {
 	char userID[MAXNAME];    //id do cliente que mandou o arquivo
 };
 
+<<<<<<< HEAD
 struct login_pair {
 	struct sockaddr_in client_addr;
 	char userID[MAXNAME];
@@ -66,6 +66,21 @@ void* sync_server_manager();
 void* election_answer();
 
 //verifica o estado das replicas dos servidores; envia pings e lança eleição quando percebe timeout
+=======
+char * devolvePathHomeServer(char *userID);
+int inactive_client(int index);
+int identify_client(char user_id [MAXNAME], int* client_index);
+void send_file(char *file, int socket, char *userID, struct sockaddr client_addr);
+void receive_file(char *file, int socket, char*userID);
+int delete_file(char *file, int socket, char*userID);
+void list_files(SOCKET socket, struct sockaddr client, char *userID);
+int inform_frontend(struct sockaddr client, SOCKET session_socket);
+void *replica_upload(void *args);
+void *session_manager(void* args);
+int login(struct packet login_request);
+void* sync_server_manager();
+void* election_answer();
+>>>>>>> 899c1fcf34e943dc359b0408acb4f079dd5bd1b4
 void *replica_manager();
 
 #endif

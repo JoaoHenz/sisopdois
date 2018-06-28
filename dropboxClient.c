@@ -24,7 +24,6 @@ int mustexit = FALSE;
 char userID[20];
 char host[20];
 int port;
-int newport;
 int socket_local;
 struct sockaddr_in serv_addr;
 struct hostent *server;
@@ -128,6 +127,8 @@ int login_server(char *host,int port){
 	int recebeuack = FALSE;
 	struct packet message, reply;
 	unsigned int length = sizeof(struct sockaddr_in);
+	struct login_data logindata;
+
 
 	pthread_mutex_lock(&lockcomunicacao);
 
@@ -136,9 +137,11 @@ int login_server(char *host,int port){
 	for (i=0;i<PACKETSIZE;i++)
 		buffer[i]='\0';
 
+	strcpy(logindata.userID,userID);
+
 	message.opcode = LOGIN;
 	message.seqnum = LOGIN;
-	strcpy(message.data,userID);
+	memcpy(message.data,userID,sizeof(struct login_data));
 
 	while(!recebeuack){
 		n = sendto(socket_local, (char *)&message, PACKETSIZE, 0, (const struct sockaddr *) &serv_addr, sizeof(struct sockaddr_in));
@@ -147,7 +150,7 @@ int login_server(char *host,int port){
 			recebeuack = TRUE;
 		}
 	}
-	newport = reply.seqnum;
+	int newport = reply.seqnum;
 
 	if ((socket_local = socket(AF_INET, SOCK_DGRAM, 0)) == -1)
 		printf("ERROR opening socket");
@@ -643,7 +646,6 @@ void* thread_frontend(){
 		n = recvfrom(frontend_socket, (char *) &message, PACKETSIZE, 0, (struct sockaddr *) &from, (socklen_t *) &from_len);
 		if(n && message.opcode == PING){
 			serv_addr = from;
-			serv_addr.sin_port = htons(newport);
 		}
 	}
 }
