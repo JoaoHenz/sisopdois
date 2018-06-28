@@ -671,12 +671,10 @@ int main(int argc,char *argv[]){
 		else{
 			if(login_request.opcode == LOGIN){
 				struct login_data logindata;
-
 				if(primary_server_id == local_server_id){
 					memcpy(&logindata,&login_request.data,sizeof(struct login_data)); //tira de dentro do login data
 					memcpy(&logindata.adress,&client,sizeof(struct sockaddr)); // adiciona endereço
 					memcpy(&login_request.data,&logindata,sizeof(struct login_data)); //bota devolta
-
 					int servo_id = local_server_id +1;
 					while(servo_id <= 3){
 						int recebeuack =  FALSE;

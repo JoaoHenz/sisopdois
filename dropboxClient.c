@@ -140,7 +140,7 @@ int login_server(char *host,int port){
 
 	message.opcode = LOGIN;
 	message.seqnum = LOGIN;
-	memcpy(message.data,userID,sizeof(struct login_data));
+	memcpy(&message.data,&logindata,sizeof(struct login_data));
 
 	while(!recebeuack){
 		n = sendto(socket_local, (char *)&message, PACKETSIZE, 0, (const struct sockaddr *) &serv_addr, sizeof(struct sockaddr_in));

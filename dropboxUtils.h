@@ -32,12 +32,10 @@
 #define FILENAMESIZE 50
 #define MAXARQINDIR 30
 
-
-//definição do packet que é utilizado na comunicação
 struct packet {
-	short int opcode;   //opcode informa qual a qual operação este packet é referente. como upload ping login
-	short int seqnum;   // número de sequencia do packet
-	char data [PACKETSIZE - 4];   //área de dados do packet
+	short int opcode;
+	short int seqnum;
+	char data [PACKETSIZE - 4];
 };
 struct file_info{
 	char name[MAXNAME];
@@ -51,26 +49,16 @@ struct login_data{
 };
 
 void removeBlank(char * filename);
-
-//cria o diretorio do user syn_dir_user
 int create_home_dir(char *userID);
-
-//cria o diretório de user dentro de dropboxserver
 int create_home_dir_server(char *userID);
-
-//recebe um comando do nosso shell e retorna qual o argumento (path normalmente)
 char * getArgument(char* command);
 char * getSecondArgument(char* command);
-
-//cria a pasta dropboxserver quando o servidor é iniciado
 int create_server_root();
 int create_server_userdir(char *userID);
 int receive_int_from(int socket);
 int send_int_to(int socket, int op);
 char* receive_string_from(int socket);
 int send_string_to(int socket, char* str);
-
-//funções de envio e recebimento de arquivo via os sockets
 int receive_file_from(int socket, char* filename);
 int send_file_to(int socket, char* filepath, struct sockaddr destination);
 
