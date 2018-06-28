@@ -350,9 +350,15 @@ int login(struct packet login_request){
 	int i, index;
 	short int port;
 	pthread_t tid;
-	struct sockaddr_in auxclient;
+	struct login_pair auxpair;
 
-	strncpy (user_id, login_request.data, MAXNAME);
+	if(login_request.seqnum == 1){
+		strncpy((char *) &auxpair, login_request.data, sizeof(struct login_pair));
+		strncpy (user_id, auxpair.userID, MAXNAME);
+	}
+	else{
+		strncpy (user_id, login_request.data, MAXNAME);
+	}
 	identify_client(user_id, &index);
 	if (login_request.opcode != LOGIN || index == -1){
 		return -1;
@@ -367,8 +373,7 @@ int login(struct packet login_request){
 			(*thread_param).s_id = i;
 			create_server_userdir(client_list[index].user_id);
 			if(login_request.seqnum == 1){
-				strncpy((char *) &auxclient, login_request.data, sizeof(struct sockaddr_in));
-				client_list[index].addr[i] = auxclient;
+				client_list[index].addr[i] = auxpair.client_addr;
 			}
 			printf("\nClient Id is %d and  Server Id is %d\n\n", index, i);
 			pthread_create(&tid, NULL, session_manager, (void *) thread_param);
@@ -596,7 +601,9 @@ int main(int argc,char *argv[]){
 	struct packet login_request, login_reply;
 	int i, j, session_port, server_len, client_len = sizeof(struct sockaddr_in), online = 1;
 	pthread_t tid1, tid2;
+	struct login_pair retransmitted_login;
 	session_count = 0;
+	struct sockaddr_in *aux_addr;
 	// num_primario indicates which server is primary: 1 -> a, 2 -> b, 3 -> this one
 
 	if (argc<6){
@@ -675,7 +682,10 @@ int main(int argc,char *argv[]){
 
 				if(primary_server_id == local_server_id){
 					int servo_id = local_server_id +1;
-					strncpy(login_request.data,(char *) &client, sizeof(client));
+					aux_addr = (struct sockaddr_in *) &client;
+					retransmitted_login.client_addr = *aux_addr;
+					strncpy(retransmitted_login.userID,login_request.data,MAXNAME);
+					strncpy(login_request.data, (char *)&retransmitted_login, sizeof(client));
 					login_request.seqnum = 1;
 					while(servo_id <= 3){
 						int recebeuack =  FALSE;

@@ -20,6 +20,11 @@ struct upload_info {
 	char userID[MAXNAME];
 };
 
+struct login_pair {
+	struct sockaddr_in client_addr;
+	char userID[MAXNAME];
+};
+
 char * devolvePathHomeServer(char *userID);
 int inactive_client(int index);
 int identify_client(char user_id [MAXNAME], int* client_index);
