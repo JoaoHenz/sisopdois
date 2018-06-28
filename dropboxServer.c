@@ -139,12 +139,12 @@ void list_files(SOCKET socket, struct sockaddr client, char *userID){
 	sendto(socket, (char *) &reply, PACKETSIZE,0,(struct sockaddr *)&client, sizeof(client));
 }
 
-int inform_frontend(struct sockaddr client, SOCKET session_socket){
-	struct sockaddr_in *fe_client;
+int inform_frontend(struct sockaddr_in client, SOCKET session_socket){
+	struct sockaddr_in fe_client;
 	struct packet ping;
 	int fe_len;
-	fe_client = (struct sockaddr_in *) &client;
-	(*fe_client).sin_port = htons(4000);
+	fe_client = client;
+	fe_client.sin_port = htons(4000);
 	fe_len = sizeof(fe_client);
 	ping.opcode = PING;
 	sendto(session_socket, (char *) &ping, PACKETSIZE, 0, (struct sockaddr *)&fe_client, fe_len);
@@ -240,14 +240,6 @@ void *session_manager(void* args){
 		// Setup done
 
 	while(active){
-		if(inform_frontend_clients > 0 && has_informed == 0){
-			inform_frontend(client, session_socket);
-			inform_frontend_clients--;
-			has_informed = 1;
-		}
-		else if (inform_frontend_clients == 0){
-			has_informed = 0;
-		}
 		if (!recvfrom(session_socket, (char *) &request, PACKETSIZE, 0, (struct sockaddr *) &client, (socklen_t *) &client_len)){
 			printf("ERROR: Package reception error.\n\n");
 		}
@@ -358,6 +350,7 @@ int login(struct packet login_request){
 	int i, index;
 	short int port;
 	pthread_t tid;
+	struct sockaddr_in auxclient;
 
 	strncpy (user_id, login_request.data, MAXNAME);
 	identify_client(user_id, &index);
@@ -373,6 +366,10 @@ int login(struct packet login_request){
 			(*thread_param).c_id = index;
 			(*thread_param).s_id = i;
 			create_server_userdir(client_list[index].user_id);
+			if(login_request.seqnum == 1){
+				strncpy((char *) &auxclient, login_request.data, sizeof(struct sockaddr_in));
+				client_list[index].addr[i] = auxclient;
+			}
 			printf("\nClient Id is %d and  Server Id is %d\n\n", index, i);
 			pthread_create(&tid, NULL, session_manager, (void *) thread_param);
 			return port;
@@ -437,7 +434,7 @@ void* election_ping(){
 	struct sockaddr_in from;
 	int from_len;
 	SOCKET ping_socket;
-	int i, n, ping_len, not_done = 1;
+	int i, j, n, ping_len, not_done = 1;
 	struct sockaddr_in pingaddr;
 
 	// Socket setup
@@ -504,6 +501,11 @@ void* election_ping(){
 	not_electing = 1;
 	if(local_server_id == primary_server_id){
 		inform_frontend_clients = session_count;
+		for(i = 0; i < MAXCLIENTS; i++){
+			for(j = 0; j < MAXSESSIONS; j++){
+				inform_frontend(client_list[i].addr[j],ping_socket);
+			}
+		}		
 	}
 	printf("Done here\n\n");
 	pthread_exit(0);
@@ -673,6 +675,8 @@ int main(int argc,char *argv[]){
 
 				if(primary_server_id == local_server_id){
 					int servo_id = local_server_id +1;
+					strncpy(login_request.data,(char *) &client, sizeof(client));
+					login_request.seqnum = 1;
 					while(servo_id <= 3){
 						int recebeuack =  FALSE;
 						struct packet reply;
