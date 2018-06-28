@@ -45,8 +45,8 @@ struct file_info{
 };
 struct login_data{
 	char userID[20];
-	struct sockaddr_in adress;
-}
+	struct sockaddr adress;
+};
 
 void removeBlank(char * filename);
 int create_home_dir(char *userID);

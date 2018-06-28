@@ -129,7 +129,6 @@ int login_server(char *host,int port){
 	unsigned int length = sizeof(struct sockaddr_in);
 	struct login_data logindata;
 
-
 	pthread_mutex_lock(&lockcomunicacao);
 
 	create_home_dir(userID);

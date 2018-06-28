@@ -1,4 +1,4 @@
-both: client server front
+both: client server
 
 
 client: dropboxUtils.o dropboxClient.o 
