@@ -139,12 +139,12 @@ void list_files(SOCKET socket, struct sockaddr client, char *userID){
 	sendto(socket, (char *) &reply, PACKETSIZE,0,(struct sockaddr *)&client, sizeof(client));
 }
 
-int inform_frontend(struct sockaddr client, SOCKET session_socket){
-	struct sockaddr_in *fe_client;
+int inform_frontend(struct sockaddr_in client, SOCKET session_socket){
+	struct sockaddr_in fe_client;
 	struct packet ping;
 	int fe_len;
-	fe_client = (struct sockaddr_in *) &client;
-	(*fe_client).sin_port = htons(4000);
+	fe_client = client;
+	fe_client.sin_port = htons(4000);
 	fe_len = sizeof(fe_client);
 	ping.opcode = PING;
 	sendto(session_socket, (char *) &ping, PACKETSIZE, 0, (struct sockaddr *)&fe_client, fe_len);
@@ -350,6 +350,7 @@ int login(struct packet login_request){
 	int i, index;
 	short int port;
 	pthread_t tid;
+	struct login_pair auxpair;
 
 	strncpy (user_id, login_request.data, MAXNAME);
 	identify_client(user_id, &index);
@@ -429,7 +430,7 @@ void* election_ping(){
 	struct sockaddr_in from;
 	int from_len;
 	SOCKET ping_socket;
-	int i, n, ping_len, not_done = 1;
+	int i, j, n, ping_len, not_done = 1;
 	struct sockaddr_in pingaddr;
 
 	// Socket setup
@@ -496,6 +497,11 @@ void* election_ping(){
 	not_electing = 1;
 	if(local_server_id == primary_server_id){
 		inform_frontend_clients = session_count;
+		for(i = 0; i < MAXCLIENTS; i++){
+			for(j = 0; j < MAXSESSIONS; j++){
+				inform_frontend(client_list[i].addr[j],ping_socket);
+			}
+		}		
 	}
 	printf("Done here\n\n");
 	pthread_exit(0);
@@ -586,7 +592,9 @@ int main(int argc,char *argv[]){
 	struct packet login_request, login_reply;
 	int i, j, session_port, server_len, client_len = sizeof(struct sockaddr_in), online = 1;
 	pthread_t tid1, tid2;
+	struct login_pair retransmitted_login;
 	session_count = 0;
+	struct sockaddr_in *aux_addr;
 	// num_primario indicates which server is primary: 1 -> a, 2 -> b, 3 -> this one
 
 	if (argc<6){
