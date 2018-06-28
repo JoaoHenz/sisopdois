@@ -9,59 +9,17 @@
 #include <pthread.h>
 #include <sys/queue.h>
 #include "dropboxUtils.h"
+#include "dropboxServer.h"
 #include <dirent.h>
 #include <netdb.h>
 #include <pwd.h>
 #include <unistd.h>
 
-#define SOCKET int
-#define PACKETSIZE 1250
 #define MAIN_PORT 6000
 #define MAXCLIENTS 10
 #define MAXSESSIONS 2
-#define NACK 0
-#define ACK 1
-#define UPLOAD 2
-#define DOWNLOAD 3
-#define DELETE 4
-#define LIST 5
-#define CLOSE 6
-#define LOGIN 7
-#define FILEPKT 8
-#define LASTPKT 9
-#define PING 10
-
-struct file_info {
-	char name[MAXNAME];
-	char extension[MAXNAME];
-	char last_modified[MAXNAME];
-	int size;
-};
-struct client {
-	char user_id [MAXNAME];
-	int session_active [MAXSESSIONS];
-	short int session_port [MAXSESSIONS];
-	int socket_set[MAXSESSIONS];
-	SOCKET socket[MAXSESSIONS];
-};
-struct packet {
-	short int opcode;
-	short int seqnum;
-	char data [PACKETSIZE - 4];
-};
-struct pair {
-	int c_id;
-	int s_id;
-};
-
-struct upload_info {
-	char filename[MAXNAME];
-	int session_port;
-	char userID[MAXNAME];
-};
 
 struct client client_list [MAXCLIENTS];
-
 SOCKET main_socket;
 int primary_server_id, local_server_id, primary_len, inform_frontend_clients;
 char ip_server_1[20];
@@ -422,7 +380,7 @@ int login(struct packet login_request){
 	}
 	return -1;
 }
-// ========================================================================== //
+
 void* sync_server_manager(){
 	// Handle updating files to the non-primary servers
 	//(doesn't handle login, close or delete requests, those are duplicated elsewhere)
@@ -627,7 +585,7 @@ void *replica_manager(){
 		}
 	}
 }
-//============================================================================
+
 int main(int argc,char *argv[]){
 	//char host[20];
 	char strid[100];

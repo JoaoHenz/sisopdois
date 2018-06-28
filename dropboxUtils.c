@@ -15,52 +15,12 @@
 #include <dirent.h>
 #include <string.h>
 #include <stdlib.h>
-
 #include <pthread.h>
 #include <unistd.h>
 #include <time.h>
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <pwd.h>
-
-#define TRUE 1
-#define FALSE 0
-#define PACKETSIZE 1250
-#define SOCKET int
-#define MAIN_PORT 6000
-#define MAXCLIENTS 10
-#define MAXSESSIONS 2
-#define NACK 0
-#define ACK 1
-#define UPLOAD 2
-#define DOWNLOAD 3
-#define DELETE 4
-#define LIST 5
-#define CLOSE 6
-#define LOGIN 7
-#define FILEPKT 8
-#define LASTPKT 9
-#define PING 10
-
-struct packet {
-	short int opcode;
-	short int seqnum;
-	char data [PACKETSIZE - 4];
-};
-
-struct file_info{
-	char name[MAXNAME];
-	char extension[MAXNAME];
-	char last_modified[MAXNAME];
-	int size;
-};
-
-struct client{
-	int devices[2];
-	char userid[MAXNAME];
-	struct file_info fi[MAXFILES];
-	int logged_in;
-};
 
 void removeBlank(char * filename){
 	char aux[200]; int i=0; int j=0;
@@ -150,6 +110,7 @@ char * getArgument(char* command){
 	argument[j] = '\0';
 	return argument;
 }
+
 char * getSecondArgument(char* command){
 	char* argument;
 	int i=0; int j=0;

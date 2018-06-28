@@ -8,6 +8,7 @@
 #include <string.h>
 #include <pthread.h>
 #include "dropboxUtils.h"
+#include "dropboxClient.h"
 #include <unistd.h>
 #include <time.h>
 #include <netinet/in.h>
@@ -17,26 +18,6 @@
 #include <sys/inotify.h>
 #include <netdb.h>
 #include <pwd.h>
-
-#define BUFFERSIZE 1250
-#define EVENT_SIZE  ( sizeof (struct inotify_event) )
-#define BUF_LEN     ( 1024 * ( EVENT_SIZE + 16 ) )
-#define PING 10
-#define FILENAMESIZE 50
-#define MAXARQINDIR 30
-
-struct packet {
-	short int opcode;
-	short int seqnum;
-	char data [PACKETSIZE - 4];
-};
-struct sync_data {
-	char client_new[FILENAMESIZE][MAXARQINDIR];
-	char server_new[FILENAMESIZE][MAXARQINDIR];
-
-	char client_old[FILENAMESIZE][MAXARQINDIR];
-	char server_old[FILENAMESIZE][MAXARQINDIR];
-};
 
 int is_syncing = FALSE;
 int mustexit = FALSE;
@@ -49,8 +30,8 @@ struct hostent *server;
 double time_between_sync = 10.f;
 int primeiro_sync = TRUE;
 struct sync_data syncdataglobal;
-
 pthread_mutex_t lockcomunicacao;
+
 int encontrou(char name[FILENAMESIZE],char name_list[FILENAMESIZE][MAXARQINDIR]){
 	int i =0;
 	int encontrou = FALSE;
@@ -64,8 +45,6 @@ int encontrou(char name[FILENAMESIZE],char name_list[FILENAMESIZE][MAXARQINDIR])
 	return encontrou;
 
 }
-
-char* list_server();
 
 void pickFileNameFromPath(char *path,char *filename){
 	char aux[100]; char aux2[100];
@@ -140,11 +119,10 @@ void setsynctime(int newsynctime){
 	time_between_sync = newsynctime;
 }
 
-//=======================================================
 int login_server(char *host,int port){
 	int n;
 	struct sockaddr_in from;
-	char buffer[BUFFERSIZE];
+	char buffer[PACKETSIZE];
 	int i;
 	int recebeuack = FALSE;
 	struct packet message, reply;
@@ -154,7 +132,7 @@ int login_server(char *host,int port){
 
 	create_home_dir(userID);
 
-	for (i=0;i<BUFFERSIZE;i++)
+	for (i=0;i<PACKETSIZE;i++)
 		buffer[i]='\0';
 
 	message.opcode = LOGIN;
@@ -184,7 +162,7 @@ int login_server(char *host,int port){
 void get_file(char *filename, char * finalpath){
 	int n;
 	struct sockaddr_in from;
-	char buffer[BUFFERSIZE];
+	char buffer[PACKETSIZE];
 	int i;
 	int recebeuack = FALSE;
 	struct packet message, reply;
@@ -226,7 +204,7 @@ void get_file(char *filename, char * finalpath){
 void send_file(char *file){
 	int n;
 	struct sockaddr_in from;
-	char buffer[BUFFERSIZE];
+	char buffer[PACKETSIZE];
 	int i;
 	int recebeuack = FALSE;
 	struct packet message, reply;
@@ -253,14 +231,14 @@ void send_file(char *file){
 	removeBlank(filepath);
 	//printf("Recebemos ack. Vamos enviar o arquivo agora. Nome do arquivo era: %s\ne o path era: %s\n",filename,filepath);
 	send_file_to(socket_local, filepath, *((struct sockaddr*) &serv_addr));
-	
+
 	pthread_mutex_unlock(&lockcomunicacao);
 }
 
 void delete_file(char *filename){
 	int n;
 	struct sockaddr_in from;
-	char buffer[BUFFERSIZE];
+	char buffer[PACKETSIZE];
 	int i;
 	int recebeuack = FALSE;
 	struct packet message, reply;
@@ -492,7 +470,7 @@ void sync_client(){
 void close_session(){
 	int n;
 	struct sockaddr_in from;
-	char buffer[BUFFERSIZE];
+	char buffer[PACKETSIZE];
 	int i;
 	int recebeuack = FALSE;
 	struct packet message, reply;
@@ -501,7 +479,7 @@ void close_session(){
 	pthread_mutex_lock(&lockcomunicacao);
 	create_home_dir(userID);
 
-	for (i=0;i<BUFFERSIZE;i++)
+	for (i=0;i<PACKETSIZE;i++)
 		buffer[i]='\0';
 
 	message.opcode = CLOSE;
@@ -517,11 +495,11 @@ void close_session(){
 	}
 	pthread_mutex_unlock(&lockcomunicacao);
 }
-//=======================================================
+
 char* list_server(){
 	int n;
 	struct sockaddr_in from;
-	char buffer[BUFFERSIZE];
+	char buffer[PACKETSIZE];
 	int i;
 	int recebeuack = FALSE;
 	struct packet message, reply;
@@ -530,7 +508,7 @@ char* list_server(){
 	pthread_mutex_lock(&lockcomunicacao);
 	create_home_dir(userID);
 
-	for (i=0;i<BUFFERSIZE;i++)
+	for (i=0;i<PACKETSIZE;i++)
 		buffer[i]='\0';
 
 	message.opcode = LIST;
