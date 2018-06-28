@@ -359,7 +359,11 @@ int login(struct packet login_request){
 	short int port;
 	pthread_t tid;
 
-	strncpy (user_id, login_request.data, MAXNAME);
+	struct login_data logindata;
+
+	memcpy(&logindata, &login_request.data,sizeof(struct login_data));
+
+	strncpy (user_id, logindata.userID, MAXNAME);
 	identify_client(user_id, &index);
 	if (login_request.opcode != LOGIN || index == -1){
 		return -1;
